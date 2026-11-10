@@ -29,6 +29,15 @@ test('the api tokens screen lists every admin token with owner and abilities', f
             ->where('plainToken', null)
             ->where('tokens', fn ($tokens) => collect($tokens)->pluck('owner')->sort()->values()->all() === ['Ayşe Yönetici', 'Mehmet Yönetici'])
             ->where('tokens', fn ($tokens) => collect($tokens)->firstWhere('name', 'Muhasebe')['abilities'][0]['label'] === __('Ürünleri okuma'))
+            ->missing('abilities'));
+});
+
+test('a new token is created on its own page', function () {
+    $this->actingAs($this->admin)
+        ->get(route('panel.settings.api-tokens.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('panel/settings/api-tokens/create')
             ->has('abilities', count(ApiAbilities::all())));
 });
 
@@ -97,6 +106,7 @@ test('a token cannot carry an ability its owner lacks on the panel', function ()
     $staff = User::factory()->withRole('Depo')->create(['user_type' => UserType::Admin]);
     $staff->givePermissionTo([
         Permission::findOrCreate('panel.settings.api-tokens.index'),
+        Permission::findOrCreate('panel.settings.api-tokens.create'),
         Permission::findOrCreate('panel.settings.api-tokens.store'),
         Permission::findOrCreate('panel.shop.products.index'),
     ]);

@@ -1,14 +1,11 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { Check, Copy, KeyRound, Plus, Trash2 } from 'lucide-react';
-import type { FormEvent } from 'react';
 import { useState } from 'react';
 
 import { ConfirmDelete } from '@/components/confirm-delete';
-import InputError from '@/components/input-error';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     Empty,
     EmptyDescription,
@@ -17,8 +14,6 @@ import {
     EmptyTitle,
 } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
 import {
     Table,
     TableBody,
@@ -29,12 +24,11 @@ import {
 } from '@/components/ui/table';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { t } from '@/lib/i18n';
-import { destroy, index, store } from '@/routes/panel/settings/api-tokens';
-import type { ApiTokenItem, Option } from '@/types';
+import { create, destroy, index } from '@/routes/panel/settings/api-tokens';
+import type { ApiTokenItem } from '@/types';
 
 type Props = {
     tokens: ApiTokenItem[];
-    abilities: Option[];
     /** Yeni oluşturulan anahtar (yalnız oluşturma sonrası bir kez gelir). */
     plainToken: string | null;
     baseUrl: string;
@@ -77,121 +71,6 @@ function NewTokenAlert({ token }: { token: string }) {
     );
 }
 
-function CreateTokenForm({ abilities }: { abilities: Option[] }) {
-    const form = useForm<{
-        name: string;
-        abilities: string[];
-        expires_at: string;
-    }>({
-        name: '',
-        abilities: [],
-        expires_at: '',
-    });
-
-    const toggle = (value: string, checked: boolean) => {
-        form.setData(
-            'abilities',
-            checked
-                ? [...form.data.abilities, value]
-                : form.data.abilities.filter((item) => item !== value),
-        );
-    };
-
-    const submit = (event: FormEvent) => {
-        event.preventDefault();
-        form.post(store().url, {
-            preserveScroll: true,
-            onSuccess: () => form.reset(),
-        });
-    };
-
-    const abilityError = Object.entries(form.errors).find(([key]) =>
-        key.startsWith('abilities'),
-    )?.[1];
-
-    return (
-        <form
-            onSubmit={submit}
-            className="max-w-3xl space-y-5 rounded-lg border p-5"
-        >
-            <div>
-                <h2 className="text-sm font-medium">
-                    {t('Yeni anahtar oluştur')}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    {t(
-                        'Anahtar sizin adınıza çalışır; yalnız seçtiğiniz işlemleri yapabilir.',
-                    )}
-                </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                    <Label htmlFor="token-name">{t('Anahtar adı')}</Label>
-                    <Input
-                        id="token-name"
-                        value={form.data.name}
-                        onChange={(event) =>
-                            form.setData('name', event.target.value)
-                        }
-                        placeholder={t('ör. Muhasebe entegrasyonu')}
-                        maxLength={100}
-                    />
-                    <InputError message={form.errors.name} />
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="token-expires">
-                        {t('Geçerlilik sonu (isteğe bağlı)')}
-                    </Label>
-                    <Input
-                        id="token-expires"
-                        type="date"
-                        value={form.data.expires_at}
-                        onChange={(event) =>
-                            form.setData('expires_at', event.target.value)
-                        }
-                    />
-                    <InputError message={form.errors.expires_at} />
-                </div>
-            </div>
-
-            <fieldset className="space-y-3">
-                <legend className="text-sm font-medium">{t('Yetkiler')}</legend>
-                <div className="grid gap-3 sm:grid-cols-2">
-                    {abilities.map((ability) => (
-                        <label
-                            key={ability.value}
-                            className="flex items-start gap-3 rounded-md border p-3 text-sm"
-                        >
-                            <Checkbox
-                                checked={form.data.abilities.includes(
-                                    ability.value,
-                                )}
-                                onCheckedChange={(checked) =>
-                                    toggle(ability.value, checked === true)
-                                }
-                            />
-                            <span className="space-y-0.5">
-                                <span className="block">{ability.label}</span>
-                                <code className="block text-xs text-muted-foreground">
-                                    {ability.value}
-                                </code>
-                            </span>
-                        </label>
-                    ))}
-                </div>
-                <InputError message={abilityError} />
-            </fieldset>
-
-            <Button type="submit" disabled={form.processing}>
-                {form.processing ? <Spinner /> : <Plus />}
-                {t('Anahtar oluştur')}
-            </Button>
-        </form>
-    );
-}
-
 function TokenList({ tokens }: { tokens: ApiTokenItem[] }) {
     if (tokens.length === 0) {
         return (
@@ -203,7 +82,7 @@ function TokenList({ tokens }: { tokens: ApiTokenItem[] }) {
                     <EmptyTitle>{t('Henüz API anahtarı yok')}</EmptyTitle>
                     <EmptyDescription>
                         {t(
-                            'Bir entegrasyonu bağlamak için aşağıdan yeni bir anahtar oluşturun.',
+                            'Bir entegrasyonu bağlamak için yeni bir anahtar oluşturun.',
                         )}
                     </EmptyDescription>
                 </EmptyHeader>
@@ -293,12 +172,7 @@ function TokenList({ tokens }: { tokens: ApiTokenItem[] }) {
     );
 }
 
-export default function ApiTokens({
-    tokens,
-    abilities,
-    plainToken,
-    baseUrl,
-}: Props) {
+export default function ApiTokens({ tokens, plainToken, baseUrl }: Props) {
     return (
         <>
             <Head title={t('API Anahtarları')} />
@@ -324,13 +198,19 @@ export default function ApiTokens({
                 {plainToken && <NewTokenAlert token={plainToken} />}
 
                 <section className="space-y-4">
-                    <h2 className="text-sm font-medium">
-                        {t('Mevcut anahtarlar')}
-                    </h2>
+                    <div className="flex items-center justify-between gap-4">
+                        <h2 className="text-sm font-medium">
+                            {t('Mevcut anahtarlar')}
+                        </h2>
+                        <Button asChild size="sm">
+                            <Link href={create()}>
+                                <Plus />
+                                {t('Yeni anahtar')}
+                            </Link>
+                        </Button>
+                    </div>
                     <TokenList tokens={tokens} />
                 </section>
-
-                <CreateTokenForm abilities={abilities} />
             </div>
         </>
     );

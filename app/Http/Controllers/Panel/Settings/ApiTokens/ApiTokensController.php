@@ -17,8 +17,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Ayarlar → API Anahtarları: REST API (/api/v1) anahtarlarının listesi,
- * oluşturulması (düz anahtar yalnız bir kez gösterilir) ve iptali.
+ * Ayarlar → API Anahtarları: REST API (/api/v1) anahtarlarının listesi ve
+ * iptali; oluşturma ayrı sayfada (düz anahtar listede yalnız bir kez gösterilir).
  */
 class ApiTokensController extends Controller
 {
@@ -40,10 +40,16 @@ class ApiTokensController extends Controller
                 'expired' => $token->expires_at?->isPast() ?? false,
                 'created_at' => $token->created_at?->toIso8601String(),
             ])->values()->all(),
-            'abilities' => ApiAbilities::options($request->user()),
             // Yeni anahtar: oluşturma sonrası tek seferlik (oturum flash'ı).
             'plainToken' => $request->session()->get('api_token'),
             'baseUrl' => url('/api/v1'),
+        ]);
+    }
+
+    public function create(Request $request): Response
+    {
+        return Inertia::render('panel/settings/api-tokens/create', [
+            'abilities' => ApiAbilities::options($request->user()),
         ]);
     }
 

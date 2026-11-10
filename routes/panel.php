@@ -153,6 +153,7 @@ Route::middleware(['auth', 'verified', 'user_type:admin', 'active_user', 'write_
 
         Route::controller(ApiTokensController::class)->prefix('api-tokens')->name('api-tokens.')->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
             Route::post('/', 'store')->name('store');
             Route::delete('/{token}', 'destroy')->whereUuid('token')->name('destroy');
         });
