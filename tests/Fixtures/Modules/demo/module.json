@@ -1,0 +1,9 @@
+{
+    "key": "demo",
+    "name": "Demo",
+    "description": "Modüller ekranı testleri için örnek modül.",
+    "version": "1.2.0",
+    "provider": "Tests\\Fixtures\\Modules\\DemoServiceProvider",
+    "requires": { "php": "^8.4", "laravel": "^13.0" },
+    "author": { "name": "Test" }
+}

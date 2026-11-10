@@ -1,0 +1,8 @@
+{
+    "key": "demo-addon",
+    "name": "Demo Eklenti",
+    "description": "Demo modülüne ihtiyaç duyan örnek modül.",
+    "version": "0.1.0",
+    "provider": "Tests\\Fixtures\\Modules\\DemoAddonServiceProvider",
+    "requires": { "php": "^8.4", "demo": "^1.0" }
+}

@@ -1,0 +1,6 @@
+{
+    "key": "not-installed",
+    "name": "Kurulu Değil",
+    "version": "1.0.0",
+    "provider": "Tests\\Fixtures\\Modules\\MissingServiceProvider"
+}

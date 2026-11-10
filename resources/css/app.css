@@ -1,0 +1,202 @@
+@import 'tailwindcss';
+
+@import 'tw-animate-css';
+
+/* Zengin metin içeriği (.rich-content) — panel, bayi alanı ve vitrin ortak. */
+@import './rich-content.css';
+
+/* Mağaza ön yüzü renk belirteçleri (store-*, .storefront kapsamı). */
+@import './storefront.css';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+/* Modül ön yüzleri host'a kopyalanmaz; Tailwind class'larını görebilmesi için
+   paketlerin kaynağı da taranır. */
+@source '../../vendor/bsinternet/*/resources/js/**/*.tsx';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+    /* Bayi Yazılımı marka renkleri (logo): giriş ekranı, bakım sayfası. */
+    --color-brand-navy: #001842;
+    --color-brand-navy-2: #0b2a5c;
+    --color-brand-blue: #0a6cff;
+    --color-brand-orange: #ff751f;
+
+    --font-sans:
+        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji';
+
+    --radius-lg: var(--radius);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 4px);
+
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+    /* Panel ve üye alanı teması: gri zemin, beyaz kartlar,
+       lacivert kenar çubuğu, kurumsal mavi birincil renk. Vitrin kendi
+       değişkenlerini .storefront kapsamında yeniden tanımlar. */
+    --background: oklch(0.975 0.004 247);
+    --foreground: oklch(0.21 0.03 262);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.21 0.03 262);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.21 0.03 262);
+    --primary: oklch(0.45 0.13 250);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.955 0.008 250);
+    --secondary-foreground: oklch(0.3 0.05 255);
+    --muted: oklch(0.955 0.006 250);
+    --muted-foreground: oklch(0.52 0.025 257);
+    --accent: oklch(0.95 0.015 245);
+    --accent-foreground: oklch(0.3 0.08 255);
+    --destructive: oklch(0.577 0.215 27);
+    --destructive-foreground: oklch(0.577 0.215 27);
+    --border: oklch(0.915 0.008 250);
+    --input: oklch(0.89 0.01 250);
+    --ring: oklch(0.62 0.12 245);
+    --chart-1: oklch(0.45 0.13 250);
+    --chart-2: oklch(0.7 0.13 225);
+    --chart-3: oklch(0.86 0.17 92);
+    --chart-4: oklch(0.65 0.15 155);
+    --chart-5: oklch(0.6 0.2 25);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.28 0.075 252);
+    --sidebar-foreground: oklch(0.9 0.02 250);
+    --sidebar-primary: oklch(0.87 0.17 92);
+    --sidebar-primary-foreground: oklch(0.25 0.06 255);
+    --sidebar-accent: oklch(0.35 0.08 252);
+    --sidebar-accent-foreground: oklch(0.99 0 0);
+    --sidebar-border: oklch(0.36 0.06 252);
+    --sidebar-ring: oklch(0.87 0.17 92);
+}
+
+.dark {
+    --background: oklch(0.17 0.02 260);
+    --foreground: oklch(0.96 0.005 250);
+    --card: oklch(0.21 0.025 260);
+    --card-foreground: oklch(0.96 0.005 250);
+    --popover: oklch(0.21 0.025 260);
+    --popover-foreground: oklch(0.96 0.005 250);
+    --primary: oklch(0.7 0.12 240);
+    --primary-foreground: oklch(0.17 0.03 260);
+    --secondary: oklch(0.27 0.025 260);
+    --secondary-foreground: oklch(0.96 0.005 250);
+    --muted: oklch(0.27 0.025 260);
+    --muted-foreground: oklch(0.7 0.02 255);
+    --accent: oklch(0.29 0.035 258);
+    --accent-foreground: oklch(0.96 0.005 250);
+    --destructive: oklch(0.45 0.16 25);
+    --destructive-foreground: oklch(0.65 0.22 25);
+    --border: oklch(0.3 0.025 260);
+    --input: oklch(0.33 0.025 260);
+    --ring: oklch(0.6 0.1 240);
+    --chart-1: oklch(0.7 0.12 240);
+    --chart-2: oklch(0.75 0.12 200);
+    --chart-3: oklch(0.86 0.17 92);
+    --chart-4: oklch(0.7 0.15 155);
+    --chart-5: oklch(0.65 0.2 25);
+    --sidebar: oklch(0.2 0.045 255);
+    --sidebar-foreground: oklch(0.9 0.02 250);
+    --sidebar-primary: oklch(0.87 0.17 92);
+    --sidebar-primary-foreground: oklch(0.25 0.06 255);
+    --sidebar-accent: oklch(0.28 0.06 254);
+    --sidebar-accent-foreground: oklch(0.99 0 0);
+    --sidebar-border: oklch(0.28 0.04 255);
+    --sidebar-ring: oklch(0.87 0.17 92);
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+@theme inline {
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Panel / üye alanı kenar çubuğu: aktif öğe kalın, grup başlıkları küçük
+   büyük harf (Stroyka benzeri yoğun menü). */
+[data-slot='sidebar-menu-button'][data-active='true'],
+[data-slot='sidebar-menu-sub-button'][data-active='true'] {
+    font-weight: 600;
+}
+
+[data-slot='sidebar-group-label'] {
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: color-mix(in oklch, var(--sidebar-foreground) 55%, transparent);
+}
+
+/* Yazdırma (toplama listesi, mal kabul fişi vb.): kenar çubuğu ve üst çubuk
+   basılmaz, içerik tam genişlik çıkar. */
+@media print {
+    [data-slot='sidebar'],
+    [data-slot='sidebar-gap'],
+    [data-slot='sidebar-container'] {
+        display: none !important;
+    }
+
+    [data-slot='sidebar-inset'] {
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: 0 !important;
+    }
+}

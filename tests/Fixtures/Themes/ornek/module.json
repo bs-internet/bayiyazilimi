@@ -1,0 +1,10 @@
+{
+    "key": "ornek",
+    "name": "Örnek Tema",
+    "type": "theme",
+    "description": "Temalar ekranı testleri için örnek tema.",
+    "version": "1.0.0",
+    "provider": "Tests\\Fixtures\\Themes\\OrnekThemeServiceProvider",
+    "requires": { "php": "^8.4" },
+    "author": { "name": "Test" }
+}

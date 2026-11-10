@@ -1,0 +1,107 @@
+/*
+ * Mağaza ön yüzü (vitrin ve temalar) için genel renk belirteçleri.
+ * Panel temasına dokunmaz: belirteçler `store-*` önekli; değerleri
+ * `.storefront` kapsayıcısındaki CSS değişkenlerinden gelir. Bir tema ya da
+ * vitrinin renk ayarı yalnız bu değişkenleri değiştirerek görünümü değiştirir.
+ * Belirli bir eklentiye ya da markaya ait değildir.
+ */
+
+@theme inline {
+    --color-store-primary: var(--store-primary);
+    --color-store-primary-2: var(--store-primary-2);
+    --color-store-dark: var(--store-dark);
+    --color-store-dark-2: var(--store-dark-2);
+    --color-store-accent: var(--store-accent);
+    --color-store-accent-2: var(--store-accent-2);
+    --color-store-accent-foreground: var(--store-accent-foreground);
+    --color-store-info: var(--store-info);
+    --color-store-danger: var(--store-danger);
+    --color-store-ink: var(--store-ink);
+    --color-store-muted: var(--store-muted);
+    --color-store-border: var(--store-border);
+    --color-store-soft: var(--store-soft);
+    --color-store-footer: var(--store-footer);
+}
+
+/* Panelde koyu tema seçilmiş olsa da vitrin her zaman açık temadadır. */
+.storefront {
+    color-scheme: light;
+
+    /* Varsayılan renkler (Bayi Yazılımı logosuna yakın). Tema ya da vitrin
+       ayarları bu değişkenleri kapsayıcıda yeniden tanımlar. */
+    --store-primary: #0a6cff;
+    --store-primary-2: #0057d6;
+    --store-dark: #001842;
+    --store-dark-2: #0b2a5c;
+    --store-accent: #ff751f;
+    --store-accent-2: #e8630f;
+    --store-accent-foreground: #ffffff;
+    --store-info: #4f9bff;
+    --store-danger: #e3262f;
+    --store-ink: #1d2433;
+    --store-muted: #6b7385;
+    --store-border: #e6e9ef;
+    --store-soft: #f5f7fa;
+    --store-footer: #001233;
+
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.87 0 0);
+    background: #fff;
+    color: var(--store-ink);
+
+    /* Zengin metin renkleri (biçim: rich-content.css) */
+    --rich-text: var(--store-ink);
+    --rich-heading: var(--store-dark);
+    --rich-link: var(--store-primary);
+    --rich-border: var(--store-border);
+    --rich-quote: var(--store-info);
+    --rich-muted: var(--store-muted);
+}
+
+/* Duyuru şeridi (kayan bant) */
+@keyframes store-marquee {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+.store-marquee {
+    animation: store-marquee 40s linear infinite;
+}
+
+.store-marquee:hover {
+    animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .store-marquee {
+        animation: none;
+    }
+}
+
+/* Yatay şeritlerde kaydırma çubuğunu gizle */
+.store-no-scrollbar {
+    scrollbar-width: none;
+}
+
+.store-no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
