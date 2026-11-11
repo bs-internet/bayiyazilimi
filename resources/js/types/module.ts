@@ -19,7 +19,7 @@ export type InstalledModule = {
     required_by: string[];
 };
 
-/** Tanıtılan modül (modules.bayiyazilimi.com listesi). */
+/** Tanıtılan modül (market.bayiyazilimi.com/modules.json listesi). */
 export type CatalogModule = {
     key: string;
     name: string;

@@ -18,8 +18,8 @@ use Throwable;
  */
 final class ModuleCatalog
 {
-    /** Ek modül listesi (bayiyazilimi.com). Biçim: `[{"key", "name", "description", "url"}, …]`. */
-    public const URL = 'https://modules.bayiyazilimi.com/modules.json';
+    /** Ek modül listesi (market.bayiyazilimi.com). Biçim: `[{"key", "name", "description", "url"}, …]`. */
+    public const URL = 'https://market.bayiyazilimi.com/modules.json';
 
     /** Son başarılı uzak liste (bağlantı yokken gösterilir). */
     public const LAST_KEY = 'bayiyazilimi.module_catalog.last';
