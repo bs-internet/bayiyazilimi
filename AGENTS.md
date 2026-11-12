@@ -167,6 +167,8 @@ bağlanan modele güvenilmez). `status` başka yerde yazılmaz.
 
 - **Sipariş** — `OrderStatus::allowedTargets()` / `canTransitionTo()`; `OrderService::changeStatus()`
   `lockOrder` altında uygular. Kargolanmış / tamamlanmış sipariş iptal edilmez (mal iadeyle döner).
+  Dış kanal (pazaryeri) siparişleri `OrderService::placeExternal()` ile açılır: kanalın KDV dahil
+  fiyatı korunur, sipariş verilen hesaba yazılır, durumu kanalın ödeme sürücüsünün `start()`'ı belirler.
   Stok sipariş anında düşer; iptal ve başarısız dışındaki her durum stoğu tutar. İptal edilen
   teklif siparişi yeniden açılırsa teklifi yeniden bağlanır ya da reddedilir. Onay bekleyen
   vadeli sipariş onaylanırken kredi yeniden değerlendirilir (`CreditService::decide(locking: true)`).

@@ -257,6 +257,87 @@ class OrderService
     }
 
     /**
+     * Dış satış kanalından gelen sipariş (pazaryeri vb.). Satış fiyatını kanal
+     * belirlemiştir: satırlar KDV dahil birim fiyatla gelir, sepet / kampanya /
+     * ödeme farkı hesabı yapılmaz; KDV ürünün oranıyla fiyatın içinden ayrılır.
+     * Sipariş verilen hesaba yazılır, stok her sipariş gibi düşülür (kanal zaten
+     * sattığı için eksik stok siparişi durdurmaz). Ödeme yöntemi kanalın kendi
+     * sürücüsüdür (ödeme sayfasında sunulmaz); siparişin durumunu `start()` belirler.
+     *
+     * @param  list<array{product: Product, quantity: int, unit_gross: BigNumber|int|string}>  $lines
+     * @param  array{customer_name: string, email: string, phone: string, billing: array<string, mixed>, shipping: array<string, mixed>, customer_note?: ?string, cargo_company?: ?string, tracking_number?: ?string, note?: ?string}  $data
+     */
+    public function placeExternal(array $lines, array $data, Account $account, string $paymentMethod): Order
+    {
+        if ($lines === []) {
+            throw new ShopException(__('Siparişte ürün yok.'));
+        }
+
+        $gateway = $this->payments->get($paymentMethod)
+            ?? throw new ShopException(__('Ödeme yöntemi bulunamadı: :method.', ['method' => $paymentMethod]));
+        $currency = $this->currencies->base();
+
+        $order = DB::transaction(function () use ($lines, $data, $account, $paymentMethod, $gateway, $currency) {
+            $order = $this->newOrder([
+                ...$data,
+                'payment_method' => $paymentMethod,
+                'same_address' => false,
+            ], null, $currency, null);
+
+            $order->fill([
+                'customer_name' => $data['customer_name'],
+                'account_id' => $account->id,
+                'warehouse_id' => self::warehouseFor($account->id),
+                'customer_note' => $data['customer_note'] ?? null,
+                'cargo_company' => $data['cargo_company'] ?? null,
+                'tracking_number' => $data['tracking_number'] ?? null,
+            ])->save();
+
+            $net = [];
+            $tax = [];
+            $gross = [];
+
+            foreach ($lines as $line) {
+                $product = $line['product'];
+                $rate = Money::decimal($product->tax_rate);
+                $lineGross = Money::times($line['unit_gross'], $line['quantity']);
+                // KDV fiyatın içinden: brüt / (1 + oran); kuruş farkı KDV'de kalır, brüt aynen korunur.
+                $lineNet = Money::div($lineGross, Money::add(1, Money::div($rate, 100, 6)));
+                $lineTax = Money::sub($lineGross, $lineNet);
+
+                $order->items()->create([
+                    'product_id' => $product->id,
+                    'sku' => $product->sku,
+                    'name' => $product->name,
+                    'quantity' => $line['quantity'],
+                    'unit_price' => Money::div($lineNet, $line['quantity'], 4),
+                    'tax_rate' => $rate,
+                    'tax_amount' => $lineTax,
+                    'line_total' => $lineGross,
+                ]);
+
+                $net[] = $lineNet;
+                $tax[] = $lineTax;
+                $gross[] = $lineGross;
+            }
+
+            $order->fill([
+                'subtotal' => Money::add(...$net),
+                'tax_total' => Money::add(...$tax),
+                'grand_total' => Money::add(...$gross),
+            ])->save();
+
+            $this->afterPlaced($order, $gateway, $data['note'] ?? null);
+
+            return $order;
+        });
+
+        OrderPlacedEvent::dispatch($order);
+
+        return $order;
+    }
+
+    /**
      * Ödeme alındı (ödeme sağlayıcısı bildirimi, yöneticinin havale onayı ya da
      * onaylanan havale bildirimi). Ödeme kaydı verilmezse siparişin yöntemiyle,
      * sipariş tutarında bir kayıt yazılır; tüm ödemeler `payments` tablosunda toplanır.
