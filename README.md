@@ -91,10 +91,11 @@ php artisan queue:work --tries=3
 kullanıcı, şifre, gönderen adresi).
 
 **Proxy / CDN.** Sunucu Cloudflare ya da bir ters proxy arkasındaysa proxy adreslerini
-yazın; yoksa istek sınırları ve kayıtlardaki IP adresleri yanlış olur:
+yazın (`cloudflare` Cloudflare aralıklarının tamamıdır; başka proxy varsa virgülle eklenir:
+`cloudflare,10.0.0.1`); yoksa istek sınırları ve kayıtlardaki IP adresleri yanlış olur:
 
 ```
-BAYIYAZILIMI_TRUSTED_PROXIES=10.0.0.1,173.245.48.0/20
+BAYIYAZILIMI_TRUSTED_PROXIES=cloudflare
 ```
 
 **İçerik güvenlik politikası (CSP).** Sayfalar, yalnız sistemin kendi betiklerinin

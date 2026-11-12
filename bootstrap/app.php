@@ -126,4 +126,18 @@ $app->singleton(PackageManifest::class, fn (Application $app) => new ModulePacka
 ));
 $app->alias(PackageManifest::class, ModulePackageManifest::class);
 
+/*
+ * Paylaşımlı hosting (DirectAdmin / cPanel): belge kökü değiştirilemiyorsa genel klasör `public/`
+ * yerine `public_html` olur. Uygulama doğrudan alan adı klasöründeyse (alan/{app, vendor, …,
+ * public_html}) ya da public_html'in yanındaki bir klasördeyse (alan/{uygulama, public_html})
+ * derlenmiş dosyalar, `storage` bağlantısı ve index.php public_html'dedir.
+ */
+foreach ([dirname(__DIR__).'/public_html', dirname(__DIR__, 2).'/public_html'] as $sharedPublic) {
+    if (is_file($sharedPublic.'/index.php')) {
+        $app->usePublicPath($sharedPublic);
+
+        break;
+    }
+}
+
 return $app;

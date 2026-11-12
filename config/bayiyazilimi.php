@@ -84,7 +84,7 @@ return [
     | Güvenilen Proxy'ler
     |--------------------------------------------------------------------------
     |
-    | Sunucu proxy / CDN arkasındaysa: virgülle ayrılmış IP / CIDR listesi ya da
+    | Sunucu proxy / CDN arkasındaysa: virgülle ayrılmış IP / CIDR listesi, `cloudflare` ya da
     | yalnız proxy'den erişilebilen sunucuda `*`. Boşsa bağlantının adresi kullanılır.
     |
     */

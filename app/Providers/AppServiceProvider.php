@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Support\Install\EnvironmentFile;
 use App\Support\Install\InstallState;
 use App\Support\Permissions\PermissionDependencies;
+use App\Support\Security\TrustedProxies;
 use App\Support\Themes\ThemeManager;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
@@ -99,10 +100,10 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureTrustedProxies(): void
     {
-        $proxies = trim((string) config('bayiyazilimi.trusted_proxies'));
+        $proxies = TrustedProxies::resolve((string) config('bayiyazilimi.trusted_proxies'));
 
-        if ($proxies !== '') {
-            TrustProxies::at($proxies === '*' ? '*' : array_map(trim(...), explode(',', $proxies)));
+        if ($proxies !== null) {
+            TrustProxies::at($proxies);
         }
     }
 
