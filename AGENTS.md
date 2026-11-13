@@ -262,9 +262,9 @@ madde 1 gereğidir; müşterinin markası bunun yerine geçmez.
 ### REST API (`/api/v1`)
 
 Panelde yapılan her iş API'den de yapılır (API first): ürün, stok, fiyat, kategori / marka, sipariş, cari,
-webhook ([routes/api.php](routes/api.php), rota adları `api.v1.*`). Tanım: [docs/api/openapi.yaml](docs/api/openapi.yaml)
-(`GET /api/v1/openapi.yaml` ile de verilir; belge sitesi api.bayiyazilimi.com bu dosyadan yayınlanır).
-**Uç nokta eklenince ya da değişince openapi.yaml da güncellenir.**
+webhook ([routes/api.php](routes/api.php), rota adları `api.v1.*`). Tanım ayrı depodadır:
+`bs-internet/bayiyazilimi-api` (`openapi.yaml`, api.bayiyazilimi.com olarak yayınlanır; yardım belgesi gibi).
+**Uç nokta eklenince ya da değişince o depodaki openapi.yaml da güncellenir.**
 
 - **Kimlik:** yalnız Sanctum kişisel erişim anahtarları (oturumla API yok). Anahtar bir **yöneticiye**
   aittir ve API o kullanıcı adına çalışır. `api_user` sahibi aktif / taslak yönetici olmayan anahtarı

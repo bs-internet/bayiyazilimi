@@ -11,15 +11,14 @@ use App\Support\Branding;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * API'nin kendisi: anahtarın kimliği ve yetkileri (GET /api/v1) ve makine
- * okunur OpenAPI tanımı (GET /api/v1/openapi.yaml, kimlik istemez).
+ * API'nin kendisi: anahtarın kimliği ve yetkileri (GET /api/v1). OpenAPI tanımı
+ * ayrı belge deposundadır (bs-internet/bayiyazilimi-api, api.bayiyazilimi.com).
  */
 class MetaController extends Controller
 {
-    public const SPEC = 'docs/api/openapi.yaml';
+    public const DOCS = 'https://api.bayiyazilimi.com';
 
     public function index(Request $request): JsonResponse
     {
@@ -33,18 +32,9 @@ class MetaController extends Controller
             'user' => ['name' => $request->user()?->name, 'email' => $request->user()?->email],
             'token' => ['name' => $token?->name, 'abilities' => $abilities, 'expires_at' => $token?->expires_at?->toIso8601String()],
             'currency' => Money::baseCode(),
-            'documentation' => 'https://api.bayiyazilimi.com',
-            'openapi' => route('api.v1.openapi'),
+            'documentation' => self::DOCS,
+            'openapi' => self::DOCS.'/openapi.yaml',
             'mcp' => route('mcp'),
         ]]);
-    }
-
-    public function openapi(): BinaryFileResponse
-    {
-        return response()->file(base_path(self::SPEC), [
-            'Content-Type' => 'application/yaml; charset=utf-8',
-            'Access-Control-Allow-Origin' => '*',
-            'Cache-Control' => 'public, max-age=3600',
-        ]);
     }
 }

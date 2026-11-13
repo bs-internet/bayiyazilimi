@@ -60,15 +60,13 @@ beforeEach(function () {
     $this->warehouse = Warehouse::query()->where('code', 'DEPO')->firstOrFail();
 });
 
-test('the api describes itself and serves its openapi document without a token', function () {
+test('the api describes itself', function () {
     $token = platformToken($this->admin, [ApiAbilities::PRODUCTS_READ]);
 
     platformApi($token)->getJson(route('api.v1.index'))->assertOk()
         ->assertJsonPath('data.api_version', 'v1')
         ->assertJsonPath('data.token.abilities', [ApiAbilities::PRODUCTS_READ])
         ->assertJsonPath('data.mcp', route('mcp'));
-
-    $this->get(route('api.v1.openapi'))->assertOk()->assertHeader('content-type', 'application/yaml; charset=utf-8');
 });
 
 test('products are created, searched, repriced in bulk and deleted', function () {

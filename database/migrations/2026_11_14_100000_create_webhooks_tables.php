@@ -14,12 +14,14 @@ use Spatie\Permission\PermissionRegistrar;
  * kayıtlı adreslere imzalı POST gönderilir. Her gönderim denemeleriyle
  * birlikte webhook_deliveries'te tutulur.
  *
- * Kurulu sistemde API anahtarı oluşturabilen roller Webhook ekranlarının
- * yetkilerini de alır; yeni kurulumda yetkileri PanelPermissionSeeder kurar.
+ * Kurulu sistemde API anahtarı oluşturabilen roller Webhook ekranlarının ve
+ * ayrı sayfaya taşınan API anahtarı oluşturma ekranının yetkilerini de alır;
+ * yeni kurulumda yetkileri PanelPermissionSeeder kurar.
  */
 return new class extends Migration
 {
     private const PERMISSIONS = [
+        'panel.settings.api-tokens.create' => 'API anahtarı oluşturma ekranı',
         'panel.settings.webhooks.index' => 'Webhook\'ları görüntüleme',
         'panel.settings.webhooks.store' => 'Webhook ekleme',
         'panel.settings.webhooks.update' => 'Webhook açma / kapatma',

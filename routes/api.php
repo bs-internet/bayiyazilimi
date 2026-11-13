@@ -25,16 +25,14 @@ use Illuminate\Support\Facades\Route;
 | API o kullanıcı olarak çalışır (etkinlik kayıtları onun adına düşer).
 | Her uç nokta bir yetki ister (`abilities:{yetki}`, bkz. ApiAbilities).
 | Yazma isteklerinde `Idempotency-Key` başlığı aynı isteğin iki kez
-| işlenmesini önler (EnsureIdempotency). Belge: docs/api/openapi.yaml.
+| işlenmesini önler (EnsureIdempotency). Belge: api.bayiyazilimi.com
+| (bs-internet/bayiyazilimi-api deposundaki openapi.yaml).
 |
 | Eklentiler kendi uç noktalarını `api.routes.register` kancasında ekler;
 | rotaları bu grubun içinde tanımlanır: /api/v1 önekini, `api.v1.` ad
 | önekini ve kimlik / etkin yönetici / istek sınırı ara katmanlarını alır.
 |
 */
-
-// Makine okunur API tanımı (kimlik istemez).
-Route::get('v1/openapi.yaml', [MetaController::class, 'openapi'])->name('api.v1.openapi');
 
 Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'api_user', 'throttle:api', EnsureIdempotency::class])->group(function () {
     $can = fn (string $ability): string => 'abilities:'.$ability;
