@@ -11,6 +11,7 @@ use App\Models\Currency;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Services\Shop\BulkOrderService;
 use App\Services\Shop\CurrencyManager;
 use App\Services\Shop\PriceCalculator;
 use App\Services\Shop\QuickOrderService;
@@ -20,10 +21,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Bayi paneli › Sipariş ver: ürün arama (ad / stok kodu + kategori / marka),
- * sepete ekleme ve önceki siparişi tekrarlama. Bayi vitrine gitmeden
+ * sepete ekleme, Excel ile toplu ekleme ve önceki siparişi tekrarlama. Bayi vitrine gitmeden
  * sipariş verebilsin diye ürün kartı verisi burada üretilir.
  */
 class QuickOrderController extends Controller
@@ -142,5 +144,45 @@ class QuickOrderController extends Controller
         }
 
         return back()->with('toast', ['type' => 'success', 'message' => __(':name sepete eklendi.', ['name' => $product->name])]);
+    }
+
+    /**
+     * Excel ile toplu sipariş: dosya (.xlsx / .csv) ya da yapıştırılan metin.
+     * Sonuç (eklenen sayısı, eklenemeyen satırlar ve nedenleri) bir sonraki
+     * "Sipariş ver" sayfasında gösterilir.
+     */
+    public function import(Request $request, BulkOrderService $bulk): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['nullable', 'required_without:text', 'file', 'max:4096', 'mimes:xlsx,csv,txt'],
+            'text' => ['nullable', 'required_without:file', 'string', 'max:100000'],
+        ], [], ['file' => __('dosya'), 'text' => __('yapıştırılan satırlar')]);
+
+        $parsed = $request->hasFile('file')
+            ? BulkOrderService::parseFile($request->file('file'))
+            : BulkOrderService::parseText((string) $request->input('text'));
+
+        $result = $bulk->add($parsed['lines']);
+        $failed = [...$parsed['errors'], ...$result['failed']];
+        $added = count($result['added']);
+
+        $request->session()->flash('bulk_order', [
+            'added' => $added,
+            'failed' => array_map(fn (array $row) => ['code' => $row['code'], 'quantity' => $row['quantity'] ?? null, 'reason' => $row['reason']], $failed),
+        ]);
+
+        return back()->with('toast', match (true) {
+            $added > 0 && $failed === [] => ['type' => 'success', 'message' => __(':added ürün sepete eklendi.', ['added' => $added])],
+            $added > 0 => ['type' => 'warning', 'message' => __(':added ürün sepete eklendi, :failed satır eklenemedi.', ['added' => $added, 'failed' => count($failed)])],
+            default => ['type' => 'error', 'message' => __('Hiçbir ürün sepete eklenemedi.')],
+        });
+    }
+
+    /** Toplu sipariş için boş Excel şablonu. */
+    public function template(): BinaryFileResponse
+    {
+        return response()->download(BulkOrderService::template(), 'toplu-siparis.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend();
     }
 }

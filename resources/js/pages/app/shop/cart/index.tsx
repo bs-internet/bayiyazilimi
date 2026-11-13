@@ -22,6 +22,8 @@ import {
     TotalsList,
 } from '@/components/admin/page';
 import { DealerBasketTable } from '@/components/dealer-shop/basket-table';
+import { BulkOrderDialog } from '@/components/dealer-shop/bulk-order-dialog';
+import type { BulkOrderResult } from '@/components/dealer-shop/bulk-order-dialog';
 import { SavedCartDialog } from '@/components/dealer-shop/saved-cart-dialog';
 import { SearchSelect } from '@/components/search-select';
 import type { SearchSelectOption } from '@/components/search-select';
@@ -74,6 +76,7 @@ type Props = {
     brands: SearchSelectOption[];
     frequentProducts: ProductHit[];
     shopUrl: string | null;
+    bulkResult: BulkOrderResult | null;
 };
 
 /** Ürün satırı: adet + Sepete ekle (satılamıyorsa Teklif listesine ekle). */
@@ -343,6 +346,7 @@ export default function AppOrder({
     brands,
     frequentProducts,
     shopUrl,
+    bulkResult,
 }: Props) {
     const blocked = lines.some((l) => !l.purchasable || !l.in_stock);
     const count = lines.reduce((sum, l) => sum + l.quantity, 0);
@@ -377,6 +381,7 @@ export default function AppOrder({
                     }
                     actions={
                         <>
+                            <BulkOrderDialog />
                             <Button variant="outline" asChild>
                                 <Link href={savedCarts.index()}>
                                     <Archive data-icon="inline-start" />
@@ -407,6 +412,34 @@ export default function AppOrder({
                         </>
                     }
                 />
+
+                {bulkResult && bulkResult.failed.length > 0 && (
+                    <Alert variant="destructive">
+                        <AlertDescription>
+                            <p className="font-medium">
+                                {t(
+                                    'Excel’den :added ürün eklendi, :failed satır eklenemedi:',
+                                    {
+                                        added: bulkResult.added,
+                                        failed: bulkResult.failed.length,
+                                    },
+                                )}
+                            </p>
+                            <ul className="mt-2 max-h-60 list-disc overflow-y-auto pl-5 text-sm">
+                                {bulkResult.failed.map((row, i) => (
+                                    <li key={`${row.code}-${i}`}>
+                                        <span className="font-mono">
+                                            {row.code || '—'}
+                                        </span>
+                                        {row.quantity !== null &&
+                                            ` × ${row.quantity}`}
+                                        : {row.reason}
+                                    </li>
+                                ))}
+                            </ul>
+                        </AlertDescription>
+                    </Alert>
+                )}
 
                 <ProductFinder
                     categories={categories}

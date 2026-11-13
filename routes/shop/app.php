@@ -63,6 +63,8 @@ Route::prefix('shop')->name('shop.')->group(function () {
     Route::controller(QuickOrderController::class)->group(function () {
         Route::get('products/search', 'search')->middleware('throttle:60,1')->name('products.search');
         Route::post('cart/add', 'add')->name('cart.add');
+        Route::post('cart/import', 'import')->middleware('throttle:20,1')->name('cart.import');
+        Route::get('cart/import-template', 'template')->name('cart.import-template');
     });
 });
 

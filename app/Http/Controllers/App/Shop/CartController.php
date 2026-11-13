@@ -36,6 +36,8 @@ class CartController extends BaseCartController
             'categories' => $this->categoryOptions(),
             'brands' => $this->brandOptions(),
             'frequentProducts' => QuickOrderController::frequent($currency),
+            // Excel ile toplu siparişin sonucu (yalnız yüklemeden sonraki ilk açılışta).
+            'bulkResult' => session('bulk_order'),
             // "Mağazaya git": vitrin modülü kuruluysa (ve bakımda değilse) vitrin adresi.
             'shopUrl' => hooks()->apply('shop.storefront_url', null),
         ];
