@@ -28,6 +28,12 @@ final class ApiAbilities
 
     public const LEDGER_WRITE = 'ledger:write';
 
+    public const CATALOG_WRITE = 'catalog:write';
+
+    public const ACCOUNTS_WRITE = 'accounts:write';
+
+    public const WEBHOOKS_MANAGE = 'webhooks:manage';
+
     /** API yetkisi => panelde aynı işi yapan rotanın izni. */
     private const PERMISSIONS = [
         self::PRODUCTS_READ => 'panel.shop.products.index',
@@ -37,6 +43,9 @@ final class ApiAbilities
         self::ORDERS_WRITE => 'panel.shop.orders.status',
         self::ACCOUNTS_READ => 'panel.shop.ledger.index',
         self::LEDGER_WRITE => 'panel.shop.ledger.adjust',
+        self::CATALOG_WRITE => 'panel.shop.categories.update',
+        self::ACCOUNTS_WRITE => 'panel.members.store',
+        self::WEBHOOKS_MANAGE => 'panel.settings.api-tokens.store',
     ];
 
     /**
@@ -48,12 +57,15 @@ final class ApiAbilities
     {
         $core = [
             self::PRODUCTS_READ => __('Ürünleri okuma'),
-            self::PRODUCTS_WRITE => __('Ürün güncelleme (fiyat, durum)'),
+            self::PRODUCTS_WRITE => __('Ürün ekleme, güncelleme, silme ve toplu fiyat'),
             self::STOCK_WRITE => __('Stok miktarı yazma'),
             self::ORDERS_READ => __('Siparişleri okuma'),
-            self::ORDERS_WRITE => __('Sipariş durumu ve fatura bilgisi yazma'),
+            self::ORDERS_WRITE => __('Sipariş oluşturma, durum ve fatura bilgisi yazma'),
             self::ACCOUNTS_READ => __('Cari hesapları okuma'),
             self::LEDGER_WRITE => __('Cari hareket yazma (tahsilat, dekont)'),
+            self::CATALOG_WRITE => __('Kategori ve marka yazma'),
+            self::ACCOUNTS_WRITE => __('Cari hesap (bayi) oluşturma ve güncelleme'),
+            self::WEBHOOKS_MANAGE => __('Webhook adreslerini yönetme'),
         ];
 
         $extra = hooks()->apply('api.abilities', []);

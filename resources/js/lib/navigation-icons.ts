@@ -41,6 +41,7 @@ import {
     UserRound,
     Users,
     Warehouse,
+    Webhook,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -66,6 +67,7 @@ export const navigationIcons: Record<string, LucideIcon> = {
     fileText: FileText,
     images: Images,
     keyRound: KeyRound,
+    webhook: Webhook,
     landmark: Landmark,
     wallet: Wallet,
     languages: Languages,

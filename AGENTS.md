@@ -261,13 +261,17 @@ madde 1 gereğidir; müşterinin markası bunun yerine geçmez.
 
 ### REST API (`/api/v1`)
 
-ERP / muhasebe gibi gelen entegrasyonlar içindir ([routes/api.php](routes/api.php), rota adları `api.v1.*`).
+Panelde yapılan her iş API'den de yapılır (API first): ürün, stok, fiyat, kategori / marka, sipariş, cari,
+webhook ([routes/api.php](routes/api.php), rota adları `api.v1.*`). Tanım: [docs/api/openapi.yaml](docs/api/openapi.yaml)
+(`GET /api/v1/openapi.yaml` ile de verilir; belge sitesi api.bayiyazilimi.com bu dosyadan yayınlanır).
+**Uç nokta eklenince ya da değişince openapi.yaml da güncellenir.**
 
 - **Kimlik:** yalnız Sanctum kişisel erişim anahtarları (oturumla API yok). Anahtar bir **yöneticiye**
   aittir ve API o kullanıcı adına çalışır. `api_user` sahibi aktif / taslak yönetici olmayan anahtarı
   reddeder (401), taslak sahibin anahtarını salt okunur yapar (403). Biçim `{uuid}|bayi_…`, bir kez gösterilir.
 - **Yetenekler:** [ApiAbilities](app/Support/Api/ApiAbilities.php) — `products:read`, `products:write`,
-  `stock:write`, `orders:read`, `orders:write`, `accounts:read`, `ledger:write`. Her rota
+  `stock:write`, `catalog:write`, `orders:read`, `orders:write`, `accounts:read`, `accounts:write`,
+  `ledger:write`, `webhooks:manage`. Her rota
   `abilities:{yetenek}` ister. Kullanıcı yalnız karşılık gelen panel yetkisine sahip olduğu yeteneği
   anahtara verebilir (`ApiAbilities::PERMISSIONS`). Eklentiler yetenek eklemek için `api.abilities` filtresini kullanır.
 - **Ekran:** Ayarlar → API Anahtarları (`panel.settings.api-tokens.*`, `ApiTokenService`).
@@ -280,7 +284,19 @@ ERP / muhasebe gibi gelen entegrasyonlar içindir ([routes/api.php](routes/api.p
   (mutlak miktar, fark "API" notlu düzeltme hareketi; lot / seri takipli ürün reddedilir); sipariş
   durumu → `OrderService::changeStatus`; fatura → `OrderService::recordInvoice`; cari hareket →
   `ExternalLedgerService` → `LedgerService::record` (`origin = api`, `external_ref` = ERP referansı,
-  aynı referans aynı kaydı döndürür).
+  aynı referans aynı kaydı döndürür); ürün ekleme / silme → `ProductService`; kategori / marka →
+  `CatalogService`; sipariş → `ApiOrderService` → `OrderService::placeExternal` (birim fiyat verilmezse
+  bayi fiyatı).
+- **Idempotency-Key:** yazma isteklerinde aynı anahtar 24 saat içinde ilk yanıtı döndürür
+  ([EnsureIdempotency](app/Http/Middleware/Api/EnsureIdempotency.php)).
+- **Webhook'lar:** [WebhookService](app/Support/Webhooks/WebhookService.php) + `DeliverWebhook` işi (kuyruk,
+  artan aralıkla 6 deneme, HMAC-SHA256 imza `X-Bayi-Signature`). Olaylar
+  [WebhookEvents](app/Support/Webhooks/WebhookEvents.php); çekirdek olaylarını `Listeners/Webhooks/SendWebhooks`
+  gönderir, veri API kaynağının gösterimidir. Eklentiler olay eklemek için `webhooks.events` filtresini kullanır.
+  Ekran: Ayarlar → Webhook'lar; API: `/api/v1/webhooks`.
+- **MCP:** `/api/mcp` (Streamable HTTP, oturumsuz JSON-RPC; [McpController](app/Http/Controllers/Mcp/McpController.php)).
+  Araçlar [McpTools](app/Support/Mcp/McpTools.php)'ta, her biri bir API uç noktasına iç istek atar: doğrulama,
+  yetki ve yanıt API ile aynıdır; yetkisi olmayan araç listelenmez. Eklentiler `mcp.tools` filtresiyle araç ekler.
 
 ### Eklenti sistemi
 

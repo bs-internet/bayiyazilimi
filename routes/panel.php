@@ -17,6 +17,7 @@ use App\Http\Controllers\Panel\Settings\Permissions\PermissionsController;
 use App\Http\Controllers\Panel\Settings\Roles\RolesController;
 use App\Http\Controllers\Panel\Settings\Themes\ThemesController;
 use App\Http\Controllers\Panel\Settings\User\UsersController;
+use App\Http\Controllers\Panel\Settings\Webhooks\WebhooksController;
 use App\Http\Controllers\Panel\System\UpdateController;
 use App\Http\Controllers\Panel\Tools\Activity\ActivityController;
 use App\Http\Controllers\Panel\Tools\Cache\CacheController;
@@ -156,6 +157,14 @@ Route::middleware(['auth', 'verified', 'user_type:admin', 'active_user', 'write_
             Route::get('/create', 'create')->name('create');
             Route::post('/', 'store')->name('store');
             Route::delete('/{token}', 'destroy')->whereUuid('token')->name('destroy');
+        });
+
+        Route::controller(WebhooksController::class)->prefix('webhooks')->name('webhooks.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::patch('/{webhook}', 'update')->whereUuid('webhook')->name('update');
+            Route::post('/{webhook}/test', 'test')->whereUuid('webhook')->name('test');
+            Route::delete('/{webhook}', 'destroy')->whereUuid('webhook')->name('destroy');
         });
 
         Route::controller(UsersController::class)->prefix('users')->name('users.')->group(function () {

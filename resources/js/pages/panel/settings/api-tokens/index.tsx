@@ -32,6 +32,8 @@ type Props = {
     /** Yeni oluşturulan anahtar (yalnız oluşturma sonrası bir kez gelir). */
     plainToken: string | null;
     baseUrl: string;
+    mcpUrl: string;
+    docsUrl: string;
 };
 
 function NewTokenAlert({ token }: { token: string }) {
@@ -172,7 +174,13 @@ function TokenList({ tokens }: { tokens: ApiTokenItem[] }) {
     );
 }
 
-export default function ApiTokens({ tokens, plainToken, baseUrl }: Props) {
+export default function ApiTokens({
+    tokens,
+    plainToken,
+    baseUrl,
+    mcpUrl,
+    docsUrl,
+}: Props) {
     return (
         <>
             <Head title={t('API Anahtarları')} />
@@ -192,6 +200,24 @@ export default function ApiTokens({ tokens, plainToken, baseUrl }: Props) {
                         <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
                             {baseUrl}
                         </code>
+                    </p>
+                    <p className="mt-2 text-sm">
+                        {t(
+                            'MCP adresi (yapay zekâ asistanları için, aynı anahtarla):',
+                        )}{' '}
+                        <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                            {mcpUrl}
+                        </code>
+                    </p>
+                    <p className="mt-2 text-sm">
+                        <a
+                            href={docsUrl}
+                            target="_blank"
+                            rel="noopener"
+                            className="underline underline-offset-4"
+                        >
+                            {t('API belgesi')}
+                        </a>
                     </p>
                 </div>
 

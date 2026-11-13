@@ -43,6 +43,8 @@ class ApiTokensController extends Controller
             // Yeni anahtar: oluşturma sonrası tek seferlik (oturum flash'ı).
             'plainToken' => $request->session()->get('api_token'),
             'baseUrl' => url('/api/v1'),
+            'mcpUrl' => route('mcp'),
+            'docsUrl' => 'https://api.bayiyazilimi.com',
         ]);
     }
 

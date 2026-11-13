@@ -229,6 +229,15 @@ final class ModuleServiceProvider extends ServiceProvider
                     'permission' => 'panel.settings.api-tokens.index',
                     'order' => 10,
                 ],
+                [
+                    'key' => 'panel.settings.webhooks.index',
+                    'title' => __('Webhook\'lar'),
+                    'href' => route('panel.settings.webhooks.index'),
+                    'icon' => 'webhook',
+                    'description' => __('Sipariş, ödeme, cari ve stok olaylarında dış sistemlere imzalı bildirim.'),
+                    'permission' => 'panel.settings.webhooks.index',
+                    'order' => 20,
+                ],
             ],
         ]);
 

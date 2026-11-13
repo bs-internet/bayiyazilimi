@@ -1,0 +1,1114 @@
+openapi: 3.1.0
+info:
+  title: Bayi Yazılımı API
+  version: "1.1.0"
+  license:
+    name: AGPL-3.0-only
+    url: https://github.com/bs-internet/bayiyazilimi/blob/main/LICENSE
+  contact:
+    name: Bayi Yazılımı
+    url: https://bayiyazilimi.com
+  description: |
+    Bayi Yazılımı'nın REST API'si: ürün, stok, fiyat, sipariş, cari hesap, tanım verileri ve webhook'lar.
+    Panelde yapılan her iş (ürün ekleme, stok yazma, sipariş açma, durum değiştirme, tahsilat) API'den de yapılır;
+    API panelle **aynı servisleri** kullanır, kurallar (durum geçişleri, kredi limiti, stok) aynıdır.
+
+    Her kurulum kendi adresinde çalışır: `https://{alanadınız}/api/v1`. Bu belgedeki örnekler `https://ornek.com` kullanır.
+
+    ## Kimlik doğrulama
+
+    Panelde **Ayarlar › API Anahtarları** ekranından anahtar oluşturun ve her istekte gönderin:
+
+    ```
+    Authorization: Bearer 9b1c…|bayi_xxxxxxxx
+    Accept: application/json
+    ```
+
+    Anahtar bir yöneticiye aittir; API o kullanıcı adına çalışır (etkinlik kayıtları onun adına düşer).
+    Pasif ya da silinen yöneticinin anahtarı çalışmaz; taslak (salt okunur) yöneticinin anahtarı yalnız okur.
+
+    ## Yetkiler
+
+    Her uç nokta bir yetki ister; yetkisi olmayan anahtar `403` alır. Anahtara yalnız panelde aynı işi yapabilen
+    kullanıcının sahip olduğu yetkiler verilebilir.
+
+    | Yetki | Kapsam |
+    |---|---|
+    | `products:read` | Ürün, stok, kategori, marka, depo, para birimi okuma |
+    | `products:write` | Ürün ekleme, güncelleme, silme, toplu fiyat |
+    | `stock:write` | Stok miktarı yazma |
+    | `catalog:write` | Kategori ve marka yazma |
+    | `orders:read` | Sipariş ve kargo firması okuma |
+    | `orders:write` | Sipariş oluşturma, durum ve fatura bilgisi |
+    | `accounts:read` | Cari hesap, bakiye, cari hareket, bayi grubu okuma |
+    | `accounts:write` | Cari hesap açma / güncelleme |
+    | `ledger:write` | Cari hareket yazma (tahsilat, dekont) |
+    | `webhooks:manage` | Webhook adreslerini yönetme |
+
+    ## Biçimler
+
+    - Tutarlar **string** döner (`"1234.50"`); kayan nokta yuvarlama hatası olmasın diye. İstekte sayı ya da string gönderilebilir.
+    - Ürün fiyatları **KDV hariç** ve ürünün kendi para birimindedir; sipariş ve cari tutarları ana para birimindedir.
+    - Zamanlar ISO-8601 (`2026-11-14T09:30:00+03:00`).
+    - Hata mesajları Türkçedir: `{"message": "…", "errors": {"alan": ["…"]}}`. Doğrulama hatası `422`, iş kuralı hatası
+      (ör. izinsiz durum geçişi, kredi limiti) da `422` döner.
+
+    ## Sayfalama ve artımlı eşitleme
+
+    Listeler Laravel sayfalayıcısıyla döner (`data`, `links`, `meta`); `per_page` en çok 100. Liste uç noktaları
+    `updated_at`, sonra `id` sırasıyla artan döner: son gördüğünüz `updated_at` değerini bir sonraki istekte
+    `updated_since` olarak gönderin, yalnız değişenler gelir.
+
+    ## Aynı isteği iki kez işlememe (Idempotency-Key)
+
+    Yazma isteklerine (`POST`, `PUT`, `PATCH`, `DELETE`) `Idempotency-Key: {benzersiz değer}` başlığı ekleyin. Ağ hatasından
+    sonra aynı anahtarla tekrar gönderilen istek yeniden işlenmez; ilk yanıt aynen döner (`Idempotent-Replayed: true`).
+    Aynı anahtar 24 saat geçerlidir; başka bir gövdeyle kullanılırsa `422` döner.
+
+    ## İstek sınırı
+
+    Anahtar başına dakikada 120 istek (kurulumda `BAYIYAZILIMI_API_RATE_LIMIT`). Yanıtlarda `X-RateLimit-Limit` ve
+    `X-RateLimit-Remaining`; aşılınca `429` ve `Retry-After`.
+
+    ## Webhook'lar
+
+    Olay olduğunda kayıtlı adreslere `POST` gider. Gövde:
+
+    ```json
+    {"id": "teslim-id", "event": "order.created", "created_at": "2026-11-14T09:30:00+03:00", "data": { … }}
+    ```
+
+    `data`, aynı kaynağın API gösterimidir (sipariş için `GET /orders/{number}` yanıtı). Başlıklar:
+    `X-Bayi-Event`, `X-Bayi-Delivery`, `X-Bayi-Signature: t={unix},v1={imza}`.
+
+    **İmzayı doğrulayın:** `imza = hex(HMAC-SHA256(gizli_anahtar, "{t}.{ham gövde}"))`; `v1` ile sabit zamanlı karşılaştırın
+    ve `t` 5 dakikadan eskiyse reddedin.
+
+    ```php
+    [$t, $v1] = sscanf($_SERVER['HTTP_X_BAYI_SIGNATURE'], 't=%d,v1=%s');
+    $ok = hash_equals(hash_hmac('sha256', $t.'.'.file_get_contents('php://input'), $secret), $v1) && abs(time() - $t) < 300;
+    ```
+
+    `2xx` dönmeyen gönderim 1 dk, 5 dk, 30 dk, 2 sa ve 6 sa sonra yeniden denenir (toplam 6 deneme). Aynı olay birden çok
+    gelebilir; `id` ile tekilleştirin. Olaylar: `order.created`, `order.status_changed`, `order.paid`, `order.invoiced`,
+    `account.transaction_recorded`, `product.stock_low`, `return.requested`, `quote.requested` (deneme: `ping`).
+
+    ## MCP (yapay zekâ asistanları)
+
+    Aynı anahtarla **Model Context Protocol** sunucusu: `https://{alanadınız}/api/mcp` (Streamable HTTP). Claude, Cursor gibi
+    istemciler ürün arama, stok sorgulama, sipariş açma, cari bakiye gibi araçları kullanır. Araçlar bu API'nin uç noktalarını
+    çağırır; anahtarın yetkisi olmayan araç listelenmez. Örnek (Claude Code):
+
+    ```
+    claude mcp add --transport http bayiyazilimi https://ornek.com/api/mcp --header "Authorization: Bearer 9b1c…|bayi_xxxx"
+    ```
+servers:
+  - url: https://{domain}/api/v1
+    variables:
+      domain:
+        default: ornek.com
+        description: Bayi Yazılımı kurulumunuzun alan adı
+security:
+  - bearer: []
+tags:
+  - name: Genel
+  - name: Ürünler
+  - name: Stok
+  - name: Tanımlar
+  - name: Siparişler
+  - name: Cari hesaplar
+  - name: Webhook'lar
+paths:
+  /:
+    get:
+      tags: [Genel]
+      summary: API ve anahtar bilgisi
+      description: Sistem adı, sürümü, ana para birimi, anahtarın adı ve yetkileri. Yetki istemez.
+      operationId: getApiInfo
+      responses:
+        "200":
+          description: Bilgi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      name: { type: string }
+                      version: { type: string, example: "1.1.0" }
+                      api_version: { type: string, example: v1 }
+                      currency: { type: string, example: TRY }
+                      token:
+                        type: object
+                        properties:
+                          name: { type: string }
+                          abilities: { type: array, items: { type: string } }
+                          expires_at: { type: [string, "null"], format: date-time }
+                      openapi: { type: string, format: uri }
+                      mcp: { type: string, format: uri }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /products:
+    get:
+      tags: [Ürünler]
+      summary: Ürün listesi
+      operationId: listProducts
+      x-ability: products:read
+      parameters:
+        - { name: q, in: query, schema: { type: string }, description: "Ad, stok kodu ya da barkodda arama" }
+        - { name: sku, in: query, schema: { type: string }, description: "Tam stok kodu" }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/Status" } }
+        - $ref: "#/components/parameters/UpdatedSince"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Ürünler
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Ürünler]
+      summary: Ürün ekle
+      description: Fiyat KDV hariçtir. Kategori ve marka slug, para birimi kodla verilir (boşsa ana para birimi). Stok `PUT /stock` ile yazılır.
+      operationId: createProduct
+      x-ability: products:write
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+            example: { sku: URUN-001, name: Örnek Kablo 3x2.5, price: "125.50", tax_rate: 20, category: kablolar, brand: ornek-marka, unit: Adet }
+      responses:
+        "201":
+          description: Eklendi
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/Product" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /products/{sku}:
+    parameters:
+      - { name: sku, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Ürünler]
+      summary: Ürün
+      operationId: getProduct
+      x-ability: products:read
+      responses:
+        "200":
+          description: Ürün
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/Product" } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Ürünler]
+      summary: Ürün güncelle
+      description: Yalnız gönderilen alanlar değişir.
+      operationId: updateProduct
+      x-ability: products:write
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                barcode: { type: [string, "null"] }
+                price: { $ref: "#/components/schemas/Amount" }
+                compare_price: { oneOf: [{ $ref: "#/components/schemas/Amount" }, { type: "null" }] }
+                tax_rate: { type: number }
+                status: { $ref: "#/components/schemas/Status" }
+                min_qty: { type: integer, minimum: 1 }
+                max_qty: { type: [integer, "null"], minimum: 1 }
+                delivery_days: { type: integer, minimum: 0 }
+                min_stock: { type: [integer, "null"], minimum: 0 }
+      responses:
+        "200":
+          description: Güncellendi
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/Product" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Ürünler]
+      summary: Ürün sil
+      description: Stoğu olan ürün silinmez (422); önce stoğu sıfırlayın ya da ürünü pasifleştirin.
+      operationId: deleteProduct
+      x-ability: products:write
+      responses:
+        "204": { description: "Silindi" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /prices:
+    put:
+      tags: [Ürünler]
+      summary: Toplu fiyat
+      description: "En çok 1.000 satır, tek işlemde. Bilinmeyen stok kodu tüm isteği reddeder. Değişmeyen ürün yazılmaz (`changed: false`)."
+      operationId: updatePrices
+      x-ability: products:write
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  maxItems: 1000
+                  items:
+                    type: object
+                    required: [sku, price]
+                    properties:
+                      sku: { type: string }
+                      price: { $ref: "#/components/schemas/Amount" }
+                      compare_price: { oneOf: [{ $ref: "#/components/schemas/Amount" }, { type: "null" }] }
+      responses:
+        "200":
+          description: Sonuç
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sku: { type: string }
+                        price: { type: string }
+                        compare_price: { type: [string, "null"] }
+                        changed: { type: boolean }
+                  meta: { type: object, properties: { count: { type: integer }, changed: { type: integer } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /stock:
+    get:
+      tags: [Stok]
+      summary: Depo bazında stok
+      operationId: listStock
+      x-ability: products:read
+      parameters:
+        - { name: sku, in: query, schema: { type: string } }
+        - { name: warehouse, in: query, schema: { type: string }, description: "Depo kodu" }
+        - $ref: "#/components/parameters/UpdatedSince"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Stok satırları
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sku: { type: string }
+                        name: { type: string }
+                        warehouse: { type: string }
+                        quantity: { type: integer }
+                        updated_at: { type: string, format: date-time }
+                  links: { type: object }
+                  meta: { type: object }
+    put:
+      tags: [Stok]
+      summary: Stok yaz (mutlak miktar)
+      description: |
+        Ürünün depodaki miktarını verilen değere getirir; fark "API" notlu düzeltme hareketi olarak yazılır.
+        Tümü ya da hiçbiri: bir satır hatalıysa hiçbir satır yazılmaz. Lot / seri takipli ürün reddedilir.
+      operationId: setStock
+      x-ability: stock:write
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [sku, warehouse, quantity]
+                    properties:
+                      sku: { type: string }
+                      warehouse: { type: string, description: "Depo kodu" }
+                      quantity: { type: integer, minimum: 0 }
+            example: { items: [{ sku: URUN-001, warehouse: DEPO, quantity: 40 }] }
+      responses:
+        "200":
+          description: Sonuç
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+                  meta: { type: object, properties: { count: { type: integer }, changed: { type: integer } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /categories:
+    get:
+      tags: [Tanımlar]
+      summary: Kategoriler
+      operationId: listCategories
+      x-ability: products:read
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/Status" } }
+        - $ref: "#/components/parameters/UpdatedSince"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Kategoriler
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Category" } }
+                  links: { type: object }
+                  meta: { type: object }
+    post:
+      tags: [Tanımlar]
+      summary: Kategori ekle
+      operationId: createCategory
+      x-ability: catalog:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CategoryInput" }
+      responses:
+        "201":
+          description: Eklendi
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/Category" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /categories/{slug}:
+    patch:
+      tags: [Tanımlar]
+      summary: Kategori güncelle
+      operationId: updateCategory
+      x-ability: catalog:write
+      parameters: [{ name: slug, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CategoryInput" }
+      responses:
+        "200":
+          description: Güncellendi
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/Category" } } }
+  /brands:
+    get:
+      tags: [Tanımlar]
+      summary: Markalar
+      operationId: listBrands
+      x-ability: products:read
+      parameters:
+        - $ref: "#/components/parameters/UpdatedSince"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Markalar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Brand" } }
+    post:
+      tags: [Tanımlar]
+      summary: Marka ekle
+      operationId: createBrand
+      x-ability: catalog:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrandInput" }
+      responses:
+        "201":
+          description: Eklendi
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/Brand" } } }
+  /brands/{slug}:
+    patch:
+      tags: [Tanımlar]
+      summary: Marka güncelle
+      operationId: updateBrand
+      x-ability: catalog:write
+      parameters: [{ name: slug, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrandInput" }
+      responses:
+        "200": { description: "Güncellendi" }
+  /warehouses:
+    get:
+      tags: [Tanımlar]
+      summary: Depolar
+      operationId: listWarehouses
+      x-ability: products:read
+      responses:
+        "200":
+          description: Depolar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code: { type: string }
+                        name: { type: string }
+                        is_default: { type: boolean }
+                        is_sellable: { type: boolean }
+                        status: { $ref: "#/components/schemas/Status" }
+  /currencies:
+    get:
+      tags: [Tanımlar]
+      summary: Para birimleri ve kurlar
+      operationId: listCurrencies
+      x-ability: products:read
+      responses:
+        "200":
+          description: Para birimleri
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code: { type: string, example: USD }
+                        name: { type: string }
+                        symbol: { type: string }
+                        exchange_rate: { type: string, example: "34.125000" }
+                        rate_updated_at: { type: [string, "null"], format: date-time }
+                        status: { $ref: "#/components/schemas/Status" }
+  /carriers:
+    get:
+      tags: [Tanımlar]
+      summary: Kargo firmaları
+      operationId: listCarriers
+      x-ability: orders:read
+      responses:
+        "200": { description: "Kargo firmaları (code, name, tracking_url, is_default, status)" }
+  /dealer-groups:
+    get:
+      tags: [Tanımlar]
+      summary: Bayi grupları
+      operationId: listDealerGroups
+      x-ability: accounts:read
+      responses:
+        "200": { description: "Bayi grupları (id, name, discount_rate, payment_terms, credit_limit, payment_term_days)" }
+  /orders:
+    get:
+      tags: [Siparişler]
+      summary: Sipariş listesi
+      operationId: listOrders
+      x-ability: orders:read
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/OrderStatus" } }
+        - { name: payment_status, in: query, schema: { type: string, enum: [pending, paid, failed, refunded, partially_refunded] } }
+        - $ref: "#/components/parameters/UpdatedSince"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Siparişler
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Order" } }
+                  links: { type: object }
+                  meta: { type: object }
+    post:
+      tags: [Siparişler]
+      summary: Sipariş oluştur
+      description: |
+        Cari hesap adına sipariş açar (ERP, bayinin kendi sitesi, MCP). Satır birim fiyatı (KDV dahil) verilmezse
+        bayinin fiyatı uygulanır: ürün indirimi, yoksa bayi / bayi grubu indirimi; ana para birimine çevrilir, KDV eklenir.
+        Stok düşer. `on_account` (vadeli) siparişte kredi limiti ve vade kuralları panelle aynıdır: limit aşılırsa sipariş
+        onaya düşer ya da reddedilir (422). Fatura adresi verilmezse hesabın ünvanı, vergi bilgisi ve adresi kullanılır.
+      operationId: createOrder
+      x-ability: orders:write
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [account, payment_method, lines]
+              properties:
+                account: { type: string, description: "Cari hesap kodu" }
+                payment_method: { type: string, enum: [on_account, bank_transfer] }
+                lines:
+                  type: array
+                  maxItems: 1000
+                  items:
+                    type: object
+                    required: [sku, quantity]
+                    properties:
+                      sku: { type: string }
+                      quantity: { type: integer, minimum: 1 }
+                      unit_price: { description: "KDV dahil birim fiyat (ana para birimi); boşsa bayi fiyatı", oneOf: [{ $ref: "#/components/schemas/Amount" }, { type: "null" }] }
+                shipping: { $ref: "#/components/schemas/Address" }
+                billing: { $ref: "#/components/schemas/Address" }
+                email: { type: string, format: email }
+                phone: { type: string }
+                customer_note: { type: string }
+                note: { type: string, description: "Sipariş geçmişine düşülür" }
+            example:
+              account: BAYI001
+              payment_method: on_account
+              lines: [{ sku: URUN-001, quantity: 10 }, { sku: URUN-002, quantity: 2, unit_price: "450.00" }]
+              shipping: { name: Depo Sorumlusu, address: Organize Sanayi 5. Cad. No 12, city: Bursa, district: Nilüfer }
+      responses:
+        "201":
+          description: Sipariş açıldı
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/Order" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /orders/{number}:
+    get:
+      tags: [Siparişler]
+      summary: Sipariş
+      operationId: getOrder
+      x-ability: orders:read
+      parameters: [{ name: number, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          description: Sipariş
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/Order" } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /orders/{number}/status:
+    patch:
+      tags: [Siparişler]
+      summary: Sipariş durumu değiştir
+      description: İzinli geçişler panelle aynıdır (kargolanmış / tamamlanmış sipariş iptal edilmez). Gönderilmeyen kargo bilgisi korunur.
+      operationId: updateOrderStatus
+      x-ability: orders:write
+      parameters:
+        - { name: number, in: path, required: true, schema: { type: string } }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: "#/components/schemas/OrderStatus" }
+                note: { type: string }
+                notify: { type: boolean, description: "Müşteriye e-posta gitsin mi" }
+                carrier: { type: [string, "null"], description: "Kargo firması kodu" }
+                tracking_number: { type: [string, "null"] }
+      responses:
+        "200": { description: "Güncellendi" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /orders/{number}/invoice:
+    put:
+      tags: [Siparişler]
+      summary: Fatura bilgisi
+      description: Sistem fatura kesmez; muhasebe programında kesilen faturanın numarası işaretlenir. Yalnız tamamlanmış sipariş. `null` işareti kaldırır.
+      operationId: recordInvoice
+      x-ability: orders:write
+      parameters: [{ name: number, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { invoice_number: { type: [string, "null"] } } }
+      responses:
+        "200": { description: "Güncellendi" }
+  /accounts:
+    get:
+      tags: [Cari hesaplar]
+      summary: Cari hesaplar
+      operationId: listAccounts
+      x-ability: accounts:read
+      parameters:
+        - { name: type, in: query, schema: { type: string, enum: [dealer, customer] } }
+        - $ref: "#/components/parameters/UpdatedSince"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Hesaplar (bakiyeleriyle)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Account" } }
+    post:
+      tags: [Cari hesaplar]
+      summary: Cari hesap aç
+      description: Kod verilmezse üretilir. Tür verilmezse bayi (`dealer`).
+      operationId: createAccount
+      x-ability: accounts:write
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccountInput" }
+      responses:
+        "201":
+          description: Açıldı
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/Account" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /accounts/{code}:
+    parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Cari hesaplar]
+      summary: Cari hesap
+      description: Bakiye (pozitif = müşteri borçlu), kredi limiti, risk, kullanılabilir limit ve vadesi geçmiş borç.
+      operationId: getAccount
+      x-ability: accounts:read
+      responses:
+        "200":
+          description: Hesap
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/Account" } } }
+    patch:
+      tags: [Cari hesaplar]
+      summary: Cari hesap güncelle
+      operationId: updateAccount
+      x-ability: accounts:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccountInput" }
+      responses:
+        "200": { description: "Güncellendi" }
+  /accounts/{code}/transactions:
+    parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Cari hesaplar]
+      summary: Cari hareketler
+      operationId: listAccountTransactions
+      x-ability: accounts:read
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Hareketler (en yeni önce)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/AccountTransaction" } }
+    post:
+      tags: [Cari hesaplar]
+      summary: Cari hareket yaz
+      description: |
+        Dış sistemden (ERP) tahsilat ya da dekont. `reference` dış sistemdeki belge numarasıdır; aynı referans tekrar
+        gönderilirse yeni kayıt açılmaz, ilk kayıt `200` ile döner (yeni kayıt `201`).
+      operationId: recordAccountTransaction
+      x-ability: ledger:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, amount, reference]
+              properties:
+                type: { type: string, enum: [collection, debit, credit], description: "collection: tahsilat, debit: borç dekontu, credit: alacak dekontu" }
+                amount: { $ref: "#/components/schemas/Amount" }
+                reference: { type: string, maxLength: 100 }
+                date: { type: string, format: date }
+                due_date: { type: string, format: date }
+                description: "{ type: string, maxLength: 255 }"
+      responses:
+        "201": { description: "Kaydedildi" }
+        "200": { description: "Aynı referansla daha önce kaydedilmiş" }
+  /webhooks:
+    get:
+      tags: [Webhook'lar]
+      summary: Webhook adresleri
+      operationId: listWebhooks
+      x-ability: webhooks:manage
+      responses:
+        "200":
+          description: Adresler
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { type: array, items: { $ref: "#/components/schemas/Webhook" } } } }
+    post:
+      tags: [Webhook'lar]
+      summary: Webhook ekle
+      description: İmza anahtarı (`secret`) yalnız bu yanıtta döner. Olaylar için `["*"]` tümü demektir. Adres herkese açık bir https adresi olmalı.
+      operationId: createWebhook
+      x-ability: webhooks:manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, events]
+              properties:
+                url: { type: string, format: uri }
+                events: { type: array, items: { type: string } }
+                description: "{ type: string }"
+            example: { url: https://erp.ornek.com/bayi-webhook, events: [order.created, order.status_changed] }
+      responses:
+        "201":
+          description: Eklendi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - $ref: "#/components/schemas/Webhook"
+                      - type: object
+                        properties: { secret: { type: string, example: whsec_… } }
+  /webhooks/events:
+    get:
+      tags: [Webhook'lar]
+      summary: Olay listesi
+      operationId: listWebhookEvents
+      x-ability: webhooks:manage
+      responses:
+        "200": { description: "Olaylar: event, label" }
+  /webhooks/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+    patch:
+      tags: [Webhook'lar]
+      summary: Webhook güncelle (aç / kapat, olaylar)
+      operationId: updateWebhook
+      x-ability: webhooks:manage
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                active: { type: boolean }
+                events: { type: array, items: { type: string } }
+                description: "{ type: [string, \"null\"] }"
+      responses:
+        "200": { description: "Güncellendi" }
+    delete:
+      tags: [Webhook'lar]
+      summary: Webhook sil
+      operationId: deleteWebhook
+      x-ability: webhooks:manage
+      responses:
+        "204": { description: "Silindi" }
+  /webhooks/{id}/ping:
+    post:
+      tags: [Webhook'lar]
+      summary: Deneme gönderimi
+      operationId: pingWebhook
+      x-ability: webhooks:manage
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "202": { description: "Kuyruğa alındı" }
+  /webhooks/{id}/deliveries:
+    get:
+      tags: [Webhook'lar]
+      summary: Son gönderimler
+      operationId: listWebhookDeliveries
+      x-ability: webhooks:manage
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 100 } }
+      responses:
+        "200":
+          description: Gönderimler
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        event: { type: string }
+                        status: { type: string, enum: [pending, succeeded, failed] }
+                        attempts: { type: integer }
+                        response_status: { type: [integer, "null"] }
+                        error: { type: [string, "null"] }
+                        delivered_at: { type: [string, "null"], format: date-time }
+                        created_at: { type: string, format: date-time }
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: Panel › Ayarlar › API Anahtarları ekranında oluşturulan anahtar.
+  parameters:
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1 } }
+    PerPage: { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    UpdatedSince:
+      name: updated_since
+      in: query
+      description: Yalnız bu andan sonra değişen kayıtlar (ISO-8601)
+      schema: { type: string, format: date-time }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      description: Aynı isteği 24 saat içinde iki kez işlememek için benzersiz değer
+      schema: { type: string, maxLength: 255 }
+  responses:
+    Unauthorized:
+      description: Anahtar yok ya da geçersiz
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Forbidden:
+      description: Anahtarın bu işlem için yetkisi yok
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    NotFound:
+      description: Kayıt bulunamadı
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    ValidationError:
+      description: Doğrulama ya da iş kuralı hatası
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+  schemas:
+    Amount:
+      description: Tutar. Yanıtlarda string ("1234.50"); istekte sayı ya da string.
+      oneOf: [{ type: string, pattern: "^-?\\d+(\\.\\d+)?$" }, { type: number }]
+    Status: { type: string, enum: [active, passive] }
+    OrderStatus:
+      type: string
+      enum: [pending, awaiting_approval, processing, shipped, completed, cancelled, failed]
+    Error:
+      type: object
+      properties:
+        message: { type: string }
+        errors: { type: object, additionalProperties: { type: array, items: { type: string } } }
+    Address:
+      type: object
+      required: [address]
+      properties:
+        name: { type: string }
+        address: { type: string }
+        city: { type: string }
+        district: { type: string }
+        postal_code: { type: string }
+        phone: { type: string }
+        tax_office: { type: string, description: "Yalnız fatura adresinde" }
+        tax_number: { type: string, description: "Yalnız fatura adresinde" }
+    Product:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sku: { type: string }
+        barcode: { type: [string, "null"] }
+        name: { type: string }
+        status: { $ref: "#/components/schemas/Status" }
+        unit: { type: string }
+        prices:
+          type: object
+          properties:
+            price: { type: string, description: "KDV hariç" }
+            compare_price: { type: [string, "null"] }
+            currency: { type: string }
+            tax_rate: { type: string }
+        stock:
+          type: object
+          properties:
+            track_stock: { type: boolean }
+            tracking: { type: string, enum: [none, lot, serial] }
+            sellable: { type: integer }
+            total: { type: integer }
+            warehouses:
+              type: array
+              items: { type: object, properties: { code: { type: string }, name: { type: string }, quantity: { type: integer } } }
+        min_qty: { type: integer }
+        max_qty: { type: [integer, "null"] }
+        delivery_days: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ProductPage:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/Product" } }
+        links: { type: object }
+        meta: { type: object }
+    ProductInput:
+      type: object
+      required: [sku, name, price, tax_rate]
+      properties:
+        sku: { type: string, maxLength: 64 }
+        name: { type: string }
+        price: { $ref: "#/components/schemas/Amount" }
+        tax_rate: { type: number }
+        currency: { type: string, description: "Para birimi kodu; boşsa ana para birimi" }
+        barcode: { type: string }
+        model_number: { type: string }
+        category: { type: string, description: "Kategori slug" }
+        brand: { type: string, description: "Marka slug" }
+        short_description: { type: string }
+        description: "{ type: string }"
+        compare_price: { $ref: "#/components/schemas/Amount" }
+        sale_mode: { type: string, enum: [cart, quote], default: cart }
+        status: { $ref: "#/components/schemas/Status" }
+        unit: { type: string, description: "Tanımlı birimlerden biri (ör. Adet)" }
+        track_stock: { type: boolean, default: true }
+        tracking: { type: string, enum: [none, lot, serial], default: none }
+        min_qty: { type: integer, default: 1 }
+        max_qty: { type: integer }
+        min_stock: { type: integer }
+        delivery_days: { type: integer, default: 0 }
+        desi: { type: number }
+    Category:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        parent: { type: [string, "null"], description: "Üst kategorinin slug'ı" }
+        description: "{ type: [string, \"null\"] }"
+        status: { $ref: "#/components/schemas/Status" }
+        sort_order: { type: integer }
+        updated_at: { type: string, format: date-time }
+    CategoryInput:
+      type: object
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        parent: { type: [string, "null"], description: "Üst kategori slug" }
+        description: "{ type: string }"
+        status: { $ref: "#/components/schemas/Status" }
+        sort_order: { type: integer }
+    Brand:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        description: "{ type: [string, \"null\"] }"
+        status: { $ref: "#/components/schemas/Status" }
+        sort_order: { type: integer }
+    BrandInput:
+      type: object
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        description: "{ type: string }"
+        status: { $ref: "#/components/schemas/Status" }
+    Order:
+      type: object
+      description: Sipariş. Tutarlar ana para biriminde; kalemlerde KDV hariç birim fiyat ve KDV dahil satır toplamı.
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: string }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        payment_status: { type: string }
+        payment_method: { type: string }
+        account: { type: [object, "null"], description: "code, title" }
+        customer: { type: object }
+        billing_address: { type: object }
+        shipping_address: { type: object }
+        totals: { type: object, description: "subtotal, tax_total, shipping_total, discount_total, grand_total" }
+        items: { type: array, items: { type: object } }
+        shipping: { type: object, description: "carrier, cargo_company, tracking_number" }
+        invoice: { type: object, description: "number, invoiced_at" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Account:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        type: { type: string, enum: [dealer, customer] }
+        billing_type: { type: [string, "null"], enum: [individual, corporate, null] }
+        tax_office: { type: [string, "null"] }
+        tax_number: { type: [string, "null"] }
+        invoice_email: { type: [string, "null"] }
+        dealer_group: { type: [string, "null"] }
+        discount_rate: { type: [string, "null"] }
+        balance: { type: string, description: "Pozitif = müşteri borçlu" }
+        credit: { type: object, description: "payment_terms, limit, term_days; tekil gösterimde risk, available, overdue_amount, overdue_count" }
+    AccountInput:
+      type: object
+      properties:
+        code: { type: string, description: "Yalnız açarken; boşsa üretilir" }
+        title: { type: string }
+        type: { type: string, enum: [dealer, customer] }
+        billing_type: { type: string, enum: [individual, corporate] }
+        tax_office: { type: string }
+        tax_number: { type: string }
+        identity_number: { type: string }
+        invoice_email: { type: string, format: email }
+        dealer_group_id: { type: string, format: uuid }
+        discount_rate: { type: number, minimum: 0, maximum: 100 }
+        payment_terms: { type: string, enum: [prepaid, credit] }
+        credit_limit: { $ref: "#/components/schemas/Amount" }
+        payment_term_days: { type: integer }
+    AccountTransaction:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        direction: { type: string, enum: [debit, credit] }
+        amount: { type: string }
+        description: "{ type: [string, \"null\"] }"
+        transaction_date: { type: string, format: date }
+        due_date: { type: [string, "null"], format: date }
+        reference: { type: [string, "null"] }
+    Webhook:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string }
+        events: { type: array, items: { type: string } }
+        description: "{ type: [string, \"null\"] }"
+        active: { type: boolean }
+        failure_count: { type: integer }
+        last_delivery_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
