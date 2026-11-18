@@ -106,9 +106,14 @@ class ShopSettings
         'cheque_warning_days' => '7',
         // Vadesi bu kadar gün içinde gelecek cari borçlar bayiye "vadesi yaklaşan" olarak gösterilir.
         'due_warning_days' => '7',
-        // Vade hatırlatması: vadesi yaklaşan (due_warning_days) ve geçen borç için bayiye
-        // günlük görevle e-posta gider (shop:send-due-reminders). Varsayılan kapalı.
-        'due_reminders_enabled' => '0',
+        // Vade hatırlatması (shop:send-due-reminders, günlük): vadesi yaklaşan (due_warning_days)
+        // ve vadesi geçen borç için bayiye e-posta; ikisi ayrı açılır, varsayılan kapalı
+        // (muhasebe çoğu zaman başka sistemde yürür, oradan da hatırlatma gidebilir).
+        'due_reminder_upcoming_enabled' => '0',
+        'due_reminder_overdue_enabled' => '0',
+        // Aynı hatırlatmaların yöneticiye her sabah giden toplu özeti (bayi bazında). Varsayılan kapalı.
+        'due_reminder_upcoming_admin' => '0',
+        'due_reminder_overdue_admin' => '0',
         // Vadesi geçmiş borç hatırlatması bu kadar günde bir yinelenir. 0 = yalnız bir kez.
         'overdue_reminder_repeat_days' => '7',
         // Bayi Cari Hesabım'da kredi limitini (kullanılabilir limit, risk) görsün mü.

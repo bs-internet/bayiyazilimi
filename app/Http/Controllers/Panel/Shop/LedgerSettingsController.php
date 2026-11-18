@@ -40,7 +40,10 @@ class LedgerSettingsController extends Controller
             'dueWarningDays' => ShopSettings::int('due_warning_days'),
             'chequesEnabled' => ShopSettings::bool('cheques_enabled'),
             'chequeWarningDays' => ShopSettings::int('cheque_warning_days'),
-            'dueRemindersEnabled' => ShopSettings::bool('due_reminders_enabled'),
+            'upcomingRemindersEnabled' => ShopSettings::bool('due_reminder_upcoming_enabled'),
+            'overdueRemindersEnabled' => ShopSettings::bool('due_reminder_overdue_enabled'),
+            'upcomingAdminEnabled' => ShopSettings::bool('due_reminder_upcoming_admin'),
+            'overdueAdminEnabled' => ShopSettings::bool('due_reminder_overdue_admin'),
             'overdueReminderRepeatDays' => ShopSettings::int('overdue_reminder_repeat_days'),
             'showCreditLimit' => ShopSettings::bool('show_credit_limit'),
         ]);
@@ -78,7 +81,10 @@ class LedgerSettingsController extends Controller
             'due_warning_days' => (string) (int) $data['due_warning_days'],
             'cheques_enabled' => $request->boolean('cheques_enabled'),
             'cheque_warning_days' => (string) (int) ($data['cheque_warning_days'] ?? ShopSettings::int('cheque_warning_days')),
-            'due_reminders_enabled' => $request->boolean('due_reminders_enabled'),
+            'due_reminder_upcoming_enabled' => $request->boolean('due_reminder_upcoming_enabled'),
+            'due_reminder_overdue_enabled' => $request->boolean('due_reminder_overdue_enabled'),
+            'due_reminder_upcoming_admin' => $request->boolean('due_reminder_upcoming_admin'),
+            'due_reminder_overdue_admin' => $request->boolean('due_reminder_overdue_admin'),
             'overdue_reminder_repeat_days' => (string) (int) ($data['overdue_reminder_repeat_days'] ?? ShopSettings::int('overdue_reminder_repeat_days')),
             'show_credit_limit' => $request->boolean('show_credit_limit'),
         ]);

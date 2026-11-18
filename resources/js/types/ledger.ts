@@ -37,6 +37,7 @@ export type LedgerDue = {
     due_date: string;
     days: number;
     open: string;
+    open_amount: string;
     total: string;
 };
 

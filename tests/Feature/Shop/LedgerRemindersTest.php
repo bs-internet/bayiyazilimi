@@ -7,7 +7,9 @@ use App\Enums\Shop\SaleMode;
 use App\Enums\Shop\StockMovementType;
 use App\Enums\Status;
 use App\Enums\UserStatus;
+use App\Enums\UserType;
 use App\Mail\Shop\AccountStatementMail;
+use App\Mail\Shop\DueDigestMail;
 use App\Mail\Shop\DueReminderMail;
 use App\Models\Carrier;
 use App\Models\Currency;
@@ -18,6 +20,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Notifications\Shop\AccountStatementNotification;
+use App\Notifications\Shop\DueDigestNotification;
 use App\Notifications\Shop\DueReminderNotification;
 use App\Services\Shop\Basket;
 use App\Services\Shop\CreditService;
@@ -27,6 +30,7 @@ use App\Services\Shop\StockService;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
     $this->withoutVite();
@@ -78,7 +82,7 @@ it('does not send due reminders while the setting is off', function () {
 });
 
 it('reminds an upcoming debt once and an overdue debt again after the repeat interval', function () {
-    ShopSettings::save(['due_reminders_enabled' => true, 'due_warning_days' => '7', 'overdue_reminder_repeat_days' => '7']);
+    ShopSettings::save(['due_reminder_upcoming_enabled' => true, 'due_reminder_overdue_enabled' => true, 'due_warning_days' => '7', 'overdue_reminder_repeat_days' => '7']);
     $order = ($this->place)(); // vade 30 gün sonra
 
     // Vadeye 10 gün var: uyarı süresinin dışında.
@@ -115,7 +119,7 @@ it('reminds an upcoming debt once and an overdue debt again after the repeat int
 });
 
 it('sends an overdue reminder only once when the repeat interval is zero', function () {
-    ShopSettings::save(['due_reminders_enabled' => true, 'due_warning_days' => '0', 'overdue_reminder_repeat_days' => '0']);
+    ShopSettings::save(['due_reminder_overdue_enabled' => true, 'due_warning_days' => '0', 'overdue_reminder_repeat_days' => '0']);
     ($this->place)();
 
     $this->travel(31)->days();
@@ -127,7 +131,7 @@ it('sends an overdue reminder only once when the repeat interval is zero', funct
 });
 
 it('skips accounts without an active member or invoice e-mail and reminds them later', function () {
-    ShopSettings::save(['due_reminders_enabled' => true]);
+    ShopSettings::save(['due_reminder_overdue_enabled' => true]);
     ($this->place)();
     $this->member->update(['status' => UserStatus::Passive]);
     $this->account->update(['invoice_email' => null]);
@@ -172,25 +176,76 @@ it('refuses to send the statement when the account has no address', function () 
     Notification::assertNothingSent();
 });
 
-it('shows the credit limit to the dealer only when it is defined and the setting allows it', function () {
-    $limit = fn () => $this->actingAs($this->member->fresh())->get(route('app.shop.payments.index'))
-        ->assertInertia(fn (Assert $page) => $page->has('ledger.summary'))
-        ->inertiaProps('ledger.summary.show_limit');
+it('reminds only the kinds that are switched on', function () {
+    ShopSettings::save(['due_reminder_overdue_enabled' => true, 'due_warning_days' => '7']);
+    ($this->place)();
+
+    // Yaklaşan borç: yalnız "vadesi geçen" açık, gönderilmez.
+    $this->travel(23)->days();
+    ($this->remind)();
+    expect(($this->sentReminders)())->toBe(0);
+
+    $this->travel(8)->days();
+    ($this->remind)();
+    expect(($this->sentReminders)())->toBe(1);
+});
+
+it('shows the credit limit box only when a limit is defined, to the dealer only if the setting allows it', function () {
+    $limit = function () {
+        $this->flushSession();
+
+        return $this->actingAs($this->member->fresh())->get(route('app.shop.payments.index'))
+            ->assertInertia(fn (Assert $page) => $page->has('ledger.summary'))
+            ->inertiaProps('ledger.summary.show_limit');
+    };
+    $adminLimit = function () {
+        $this->flushSession();
+
+        return $this->actingAs($this->admin)->get(route('panel.members.show', $this->member->id))
+            ->assertInertia(fn (Assert $page) => $page->where('ledger.recipients', ['user@user.com', 'muhasebe@bayi.test']))
+            ->inertiaProps('ledger.summary.show_limit');
+    };
 
     expect($limit())->toBeTrue();
 
+    // Bayiye kapalı; yönetici yine görür.
     ShopSettings::save(['show_credit_limit' => false]);
-    expect($limit())->toBeFalse();
+    expect($limit())->toBeFalse()
+        ->and($adminLimit())->toBeTrue();
 
+    // Limit tanımlı değil: kutu kimseye çıkmaz.
     ShopSettings::save(['show_credit_limit' => true]);
     $this->group->update(['credit_limit' => null]);
     $this->account->update(['credit_limit' => null]);
-    expect($limit())->toBeFalse();
+    expect($limit())->toBeFalse()
+        ->and($adminLimit())->toBeFalse();
+});
 
-    // Yönetici müşteri detayında her durumda görür.
-    $this->flushSession();
-    ShopSettings::save(['show_credit_limit' => false]);
-    $this->actingAs($this->admin)->get(route('panel.members.show', $this->member->id))
-        ->assertInertia(fn (Assert $page) => $page->where('ledger.summary.show_limit', true)
-            ->where('ledger.recipients', ['user@user.com', 'muhasebe@bayi.test']));
+it('sends the admins one daily digest of all dealers when switched on', function () {
+    ShopSettings::save(['due_reminder_overdue_admin' => true, 'due_reminder_upcoming_admin' => true, 'due_warning_days' => '7']);
+    $order = ($this->place)();
+    $manager = User::factory()->create(['user_type' => UserType::Admin]);
+    $manager->assignRole('Admin');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $outsider = User::factory()->create(['user_type' => UserType::Admin]); // cari yetkisi yok
+
+    $this->travel(31)->days();
+    ($this->remind)();
+    $this->travel(1)->days();
+    ($this->remind)();
+
+    // Bayiye gitmez (bayi sütunu kapalı); yöneticilere her sabah bir özet.
+    expect(($this->sentReminders)())->toBe(0);
+    Notification::assertSentToTimes($this->admin, DueDigestNotification::class, 2);
+    Notification::assertSentToTimes($manager, DueDigestNotification::class, 2);
+    Notification::assertNotSentTo($outsider, DueDigestNotification::class);
+
+    Notification::assertSentTo($this->admin, DueDigestNotification::class, function (DueDigestNotification $n) {
+        $row = $n->rows[0];
+
+        return count($n->rows) === 1 && $row['code'] === $this->account->code && $row['overdue_count'] === 1 && $row['upcoming_count'] === 0;
+    });
+
+    $mail = (new DueDigestMail(Notification::sent($this->admin, DueDigestNotification::class)->first()->rows, true, true))->render();
+    expect($mail)->toContain($this->account->code)->toContain('en eski');
 });

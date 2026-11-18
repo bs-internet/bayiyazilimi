@@ -142,6 +142,7 @@ class CreditService
                 'due_date' => $row['due']->toDateString(),
                 'days' => abs($days),
                 'open' => Money::format($row['open']),
+                'open_amount' => Money::str($row['open']),
                 'total' => Money::format($row['transaction']->amount),
             ];
 

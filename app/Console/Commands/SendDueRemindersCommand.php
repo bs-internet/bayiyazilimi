@@ -19,7 +19,13 @@ final class SendDueRemindersCommand extends Command
 
     public function handle(DueReminderService $reminders): int
     {
-        $this->info(__(':count hesaba vade hatırlatması gönderildi.', ['count' => $reminders->run()]));
+        $result = $reminders->run();
+
+        $this->info(__(':count bayiye vade hatırlatması gönderildi.', ['count' => $result['dealers']]));
+
+        if ($result['digest']) {
+            $this->info(__('Yöneticilere günlük vade özeti gönderildi.'));
+        }
 
         return self::SUCCESS;
     }

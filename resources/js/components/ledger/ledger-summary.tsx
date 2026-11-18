@@ -45,7 +45,7 @@ function Tile({
 export function LedgerSummaryCards({ ledger }: { ledger: LedgerData }) {
     const s = ledger.summary;
     const credit = s.terms === 'credit';
-    const showLimit = credit && s.show_limit !== false;
+    const showLimit = credit && s.show_limit === true;
 
     return (
         <Card className="gap-0 overflow-hidden py-0">

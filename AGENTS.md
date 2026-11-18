@@ -194,10 +194,11 @@ bağlanan modele güvenilmez). `status` başka yerde yazılmaz.
   güncellemeyle işaretler; `account_transactions.reversal_of` tekildir. Alacaklar önce ödemeye
   bağlanan siparişlere (`payment_orders`), kalanı en eski vadeli borçlara (FIFO) dağıtılır.
   Cari yazışmaları `Account::ledgerEmails()` adreslerine (aktif üyeler + fatura e-postası) gider:
-  panelden "E-postayla gönder" (Excel ekli ekstre) ve Cari Ayarları'nda açıkken günlük vade
-  hatırlatması ([DueReminderService](app/Services/Shop/DueReminderService.php); yaklaşan borç bir kez,
+  panelden "E-postayla gönder" (Excel ekli ekstre) ve Cari Ayarları'nda açıkken (yaklaşan / geçen ayrı,
+  ikisi de varsayılan kapalı) günlük vade hatırlatması; aynı türler için yöneticiye ayrı anahtarla her
+  sabah tek toplu özet (cari yetkili aktif yöneticiler, SendDueDigest). Bayi hatırlatması ([DueReminderService](app/Services/Shop/DueReminderService.php); yaklaşan borç bir kez,
   geçen borç `overdue_reminder_repeat_days` günde bir, `due_reminders` tablosu). Bayiye kredi limiti
-  yalnız tanımlıysa ve `show_credit_limit` açıksa gösterilir.
+  kutusu yalnız limit tanımlıysa, bayiye ayrıca `show_credit_limit` açıksa gösterilir.
 - **Ödeme sayfası** — `CheckoutGuard`: her ödeme sayfasına tek kullanımlık `checkout_token`
   (çift gönderim tek sipariş verir) ve `expected_total` (fiyat değiştiyse sipariş bir kez yeni
   toplamla reddedilir).

@@ -62,8 +62,8 @@ final class LedgerPresenter
     /**
      * Cari özeti: bakiye (borçlu / alacaklı), çalışma şekli; vadeli hesapta
      * kredi limiti, risk, kullanılabilir limit, vadesi geçen ve onay bekleyen.
-     * Bayiye ($admin = false) limit yalnız tanımlıysa ve Cari Ayarları'nda
-     * gösterim açıksa (`show_credit_limit`) gösterilir (`show_limit`).
+     * Limit kutusu (`show_limit`) yalnız limit tanımlıysa gösterilir; bayiye
+     * ($admin = false) ayrıca Cari Ayarları'nda gösterim açıksa (`show_credit_limit`).
      *
      * @return array<string, mixed>
      */
@@ -89,7 +89,7 @@ final class LedgerPresenter
 
         return [
             ...$summary,
-            'show_limit' => $admin || ($terms->limit !== null && ShopSettings::bool('show_credit_limit')),
+            'show_limit' => $terms->limit !== null && ($admin || ShopSettings::bool('show_credit_limit')),
             'credit_limit' => $terms->limit !== null ? Money::format($terms->limit) : null,
             'risk' => Money::format($risk),
             'available' => $terms->limit !== null ? Money::format(Money::max(0, Money::sub($terms->limit, $risk))) : null,

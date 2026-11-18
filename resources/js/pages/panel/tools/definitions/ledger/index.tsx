@@ -7,6 +7,15 @@ import { SwitchField, TextField } from '@/components/shop/form-fields';
 import { Button } from '@/components/ui/button';
 import { FieldGroup } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
+import { Switch } from '@/components/ui/switch';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { t } from '@/lib/i18n';
 import { edit, update } from '@/routes/panel/shop/ledger-settings';
 
@@ -16,10 +25,42 @@ type Props = {
     dueWarningDays: number;
     chequesEnabled: boolean;
     chequeWarningDays: number;
-    dueRemindersEnabled: boolean;
+    upcomingRemindersEnabled: boolean;
+    overdueRemindersEnabled: boolean;
+    upcomingAdminEnabled: boolean;
+    overdueAdminEnabled: boolean;
     overdueReminderRepeatDays: number;
     showCreditLimit: boolean;
 };
+
+/** Hatırlatma tablosunda tek aç / kapa hücresi (form değeri gizli alanda). */
+function ToggleCell({
+    name,
+    label,
+    defaultChecked,
+    onChange,
+}: {
+    name: string;
+    label: string;
+    defaultChecked: boolean;
+    onChange?: (checked: boolean) => void;
+}) {
+    const [checked, setChecked] = useState(defaultChecked);
+
+    return (
+        <TableCell className="text-center">
+            <input type="hidden" name={name} value={checked ? '1' : '0'} />
+            <Switch
+                checked={checked}
+                aria-label={label}
+                onCheckedChange={(value) => {
+                    setChecked(value);
+                    onChange?.(value);
+                }}
+            />
+        </TableCell>
+    );
+}
 
 export default function LedgerSettings({
     currency,
@@ -27,12 +68,17 @@ export default function LedgerSettings({
     dueWarningDays,
     chequesEnabled,
     chequeWarningDays,
-    dueRemindersEnabled,
+    upcomingRemindersEnabled,
+    overdueRemindersEnabled,
+    upcomingAdminEnabled,
+    overdueAdminEnabled,
     overdueReminderRepeatDays,
     showCreditLimit,
 }: Props) {
     const [cheques, setCheques] = useState(chequesEnabled);
-    const [reminders, setReminders] = useState(dueRemindersEnabled);
+    const [overdueReminders, setOverdueReminders] = useState(
+        overdueRemindersEnabled,
+    );
 
     return (
         <>
@@ -94,18 +140,99 @@ export default function LedgerSettings({
                                             "Vadesine bu kadar gün kalan borçlar bayinin Cari Hesabım ekranında ve müşteri detayında 'vadesi yaklaşan' olarak gösterilir.",
                                         )}
                                     />
-                                    <SwitchField
-                                        name="due_reminders_enabled"
-                                        label={t(
-                                            'Vade hatırlatmasını e-postayla gönder',
-                                        )}
-                                        description={t(
-                                            'Açıkken vadesi yaklaşan (yukarıdaki süre) ve vadesi geçen borcu olan bayiye her sabah e-posta gider: yaklaşan borç için bir kez, geçen borç için aşağıdaki aralıkla. E-posta hesabın aktif üyelerine ve fatura e-postasına gider.',
-                                        )}
-                                        defaultChecked={dueRemindersEnabled}
-                                        onChange={setReminders}
-                                    />
-                                    {reminders && (
+                                </FieldGroup>
+                            </SectionCard>
+
+                            <SectionCard
+                                title={t('Vade hatırlatma e-postaları')}
+                                description={t(
+                                    "Muhasebe başka bir sistemde yürüyorsa oradan da hatırlatma gidebilir; karışıklık olmaması için hepsi varsayılan kapalıdır. Açık olan e-postalar her sabah 09:00'da gider. Bayi: hesabın aktif kullanıcılarına ve tanımlıysa fatura e-postasına, kendi borçları. Yönetici: cariyi görme yetkisi olan aktif yöneticilere, tüm bayilerin listesi tek e-postada.",
+                                )}
+                            >
+                                <FieldGroup>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>
+                                                    {t('Hatırlatma')}
+                                                </TableHead>
+                                                <TableHead className="w-24 text-center">
+                                                    {t('Bayi')}
+                                                </TableHead>
+                                                <TableHead className="w-24 text-center">
+                                                    {t('Yönetici')}
+                                                </TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            <TableRow>
+                                                <TableCell className="whitespace-normal">
+                                                    <div className="font-medium">
+                                                        {t(
+                                                            'Vadesi yaklaşan borç',
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {t(
+                                                            'Bayiye borç başına bir kez; yöneticiye her sabah güncel liste.',
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <ToggleCell
+                                                    name="due_reminder_upcoming_enabled"
+                                                    label={t(
+                                                        'Vadesi yaklaşan borç: bayi',
+                                                    )}
+                                                    defaultChecked={
+                                                        upcomingRemindersEnabled
+                                                    }
+                                                />
+                                                <ToggleCell
+                                                    name="due_reminder_upcoming_admin"
+                                                    label={t(
+                                                        'Vadesi yaklaşan borç: yönetici',
+                                                    )}
+                                                    defaultChecked={
+                                                        upcomingAdminEnabled
+                                                    }
+                                                />
+                                            </TableRow>
+                                            <TableRow>
+                                                <TableCell className="whitespace-normal">
+                                                    <div className="font-medium">
+                                                        {t('Vadesi geçen borç')}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {t(
+                                                            'Bayiye borç kapanana kadar aşağıdaki aralıkla; yöneticiye her sabah güncel liste.',
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <ToggleCell
+                                                    name="due_reminder_overdue_enabled"
+                                                    label={t(
+                                                        'Vadesi geçen borç: bayi',
+                                                    )}
+                                                    defaultChecked={
+                                                        overdueRemindersEnabled
+                                                    }
+                                                    onChange={
+                                                        setOverdueReminders
+                                                    }
+                                                />
+                                                <ToggleCell
+                                                    name="due_reminder_overdue_admin"
+                                                    label={t(
+                                                        'Vadesi geçen borç: yönetici',
+                                                    )}
+                                                    defaultChecked={
+                                                        overdueAdminEnabled
+                                                    }
+                                                />
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                    {overdueReminders && (
                                         <TextField
                                             name="overdue_reminder_repeat_days"
                                             label={t(
