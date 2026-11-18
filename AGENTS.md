@@ -193,6 +193,11 @@ bağlanan modele güvenilmez). `status` başka yerde yazılmaz.
 - **Cari** — `LedgerService` her yazmada **hesap satırını** kilitler. `reverse()` koşullu
   güncellemeyle işaretler; `account_transactions.reversal_of` tekildir. Alacaklar önce ödemeye
   bağlanan siparişlere (`payment_orders`), kalanı en eski vadeli borçlara (FIFO) dağıtılır.
+  Cari yazışmaları `Account::ledgerEmails()` adreslerine (aktif üyeler + fatura e-postası) gider:
+  panelden "E-postayla gönder" (Excel ekli ekstre) ve Cari Ayarları'nda açıkken günlük vade
+  hatırlatması ([DueReminderService](app/Services/Shop/DueReminderService.php); yaklaşan borç bir kez,
+  geçen borç `overdue_reminder_repeat_days` günde bir, `due_reminders` tablosu). Bayiye kredi limiti
+  yalnız tanımlıysa ve `show_credit_limit` açıksa gösterilir.
 - **Ödeme sayfası** — `CheckoutGuard`: her ödeme sayfasına tek kullanımlık `checkout_token`
   (çift gönderim tek sipariş verir) ve `expected_total` (fiyat değiştiyse sipariş bir kez yeni
   toplamla reddedilir).
@@ -426,7 +431,7 @@ alanlar yalnız `Storefront::enabled()` iken görünür ve kapalıyken değerler
   Sürüm: `App\Support\BayiYazilimi::VERSION`.
 - **Zamanlanmış görevler** ([routes/console.php](routes/console.php)): `shop:sync-rates` (hafta içi
   09:05 ve 15:45), `shop:expire-pending-payments` (5 dk), `shop:release-stock-reservations` (saatlik),
-  `shop:refresh-expired-stock` (00:10), `bayi:backup` (03:30; mysqldump, en yeni `BAYIYAZILIMI_BACKUP_KEEP`
+  `shop:refresh-expired-stock` (00:10), `shop:send-due-reminders` (09:00), `bayi:backup` (03:30; mysqldump, en yeni `BAYIYAZILIMI_BACKUP_KEEP`
   yedek, [BackupService](app/Services/System/BackupService.php)) ve `BAYIYAZILIMI_QUEUE_VIA_SCHEDULER`
   açıkken her dakika `queue:work --stop-when-empty` (paylaşımlı hostingde cron yeter).
 - **Hata bildirimi:** raporlanan her hata günlüğe yazılır; canlıda ayrıca [ErrorAlerts](app/Support/System/ErrorAlerts.php)

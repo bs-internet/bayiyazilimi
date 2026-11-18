@@ -16,6 +16,9 @@ type Props = {
     dueWarningDays: number;
     chequesEnabled: boolean;
     chequeWarningDays: number;
+    dueRemindersEnabled: boolean;
+    overdueReminderRepeatDays: number;
+    showCreditLimit: boolean;
 };
 
 export default function LedgerSettings({
@@ -24,8 +27,12 @@ export default function LedgerSettings({
     dueWarningDays,
     chequesEnabled,
     chequeWarningDays,
+    dueRemindersEnabled,
+    overdueReminderRepeatDays,
+    showCreditLimit,
 }: Props) {
     const [cheques, setCheques] = useState(chequesEnabled);
+    const [reminders, setReminders] = useState(dueRemindersEnabled);
 
     return (
         <>
@@ -86,6 +93,51 @@ export default function LedgerSettings({
                                         description={t(
                                             "Vadesine bu kadar gün kalan borçlar bayinin Cari Hesabım ekranında ve müşteri detayında 'vadesi yaklaşan' olarak gösterilir.",
                                         )}
+                                    />
+                                    <SwitchField
+                                        name="due_reminders_enabled"
+                                        label={t(
+                                            'Vade hatırlatmasını e-postayla gönder',
+                                        )}
+                                        description={t(
+                                            'Açıkken vadesi yaklaşan (yukarıdaki süre) ve vadesi geçen borcu olan bayiye her sabah e-posta gider: yaklaşan borç için bir kez, geçen borç için aşağıdaki aralıkla. E-posta hesabın aktif üyelerine ve fatura e-postasına gider.',
+                                        )}
+                                        defaultChecked={dueRemindersEnabled}
+                                        onChange={setReminders}
+                                    />
+                                    {reminders && (
+                                        <TextField
+                                            name="overdue_reminder_repeat_days"
+                                            label={t(
+                                                'Vadesi geçen borç hatırlatma aralığı (gün)',
+                                            )}
+                                            type="number"
+                                            min={0}
+                                            defaultValue={
+                                                overdueReminderRepeatDays
+                                            }
+                                            error={
+                                                errors.overdue_reminder_repeat_days
+                                            }
+                                            description={t(
+                                                'Borç ödenene kadar bu kadar günde bir yeniden hatırlatılır. 0: yalnız bir kez.',
+                                            )}
+                                        />
+                                    )}
+                                </FieldGroup>
+                            </SectionCard>
+
+                            <SectionCard title={t('Kredi limiti')}>
+                                <FieldGroup>
+                                    <SwitchField
+                                        name="show_credit_limit"
+                                        label={t(
+                                            'Bayiye kredi limitini göster',
+                                        )}
+                                        description={t(
+                                            'Açıkken limiti tanımlı bayi Cari Hesabım ekranında limitini, riskini ve kullanılabilir limitini görür. Limiti tanımlı olmayan bayiye hiç gösterilmez. Yönetici her durumda müşteri detayında görür.',
+                                        )}
+                                        defaultChecked={showCreditLimit}
                                     />
                                 </FieldGroup>
                             </SectionCard>

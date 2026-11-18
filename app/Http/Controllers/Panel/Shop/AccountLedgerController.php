@@ -9,6 +9,7 @@ use App\Enums\Shop\CustomerType;
 use App\Enums\Shop\PaymentStatus;
 use App\Enums\Shop\TransactionDirection;
 use App\Enums\UserType;
+use App\Events\Shop\AccountStatementSentEvent;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\AccountTransaction;
@@ -220,6 +221,27 @@ class AccountLedgerController extends Controller
         return response()->download($path, 'cari-ekstre-'.Str::slug($account->code).'-'.now()->format('Y-m-d').'.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ])->deleteFileAfterSend();
+    }
+
+    /**
+     * Ekstreyi (seçili dönem, Excel ekli) bayinin cari adreslerine e-postayla gönderir.
+     */
+    public function send(Request $request, Account $account): RedirectResponse
+    {
+        $data = $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ], [], ['from' => __('başlangıç tarihi'), 'to' => __('bitiş tarihi')]);
+
+        $emails = $account->ledgerEmails();
+
+        if ($emails === []) {
+            return back()->with('toast', ['type' => 'warning', 'message' => __('Bu carinin aktif üyesi ya da fatura e-postası yok; ekstre gönderilemedi.')]);
+        }
+
+        AccountStatementSentEvent::dispatch($account, $emails, $data['from'] ?? null, $data['to'] ?? null, $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Ekstre gönderildi: :emails', ['emails' => implode(', ', $emails)])]);
     }
 
     /**

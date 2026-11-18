@@ -23,6 +23,9 @@ Schedule::command('shop:release-stock-reservations')->hourly()->withoutOverlappi
 // Süresi dolan lotlar satılabilir stoktan düşülür (stok hareketi olmadan değişen tek durum).
 Schedule::command('shop:refresh-expired-stock')->dailyAt('00:10');
 
+// Vadesi yaklaşan / geçen cari borç için bayiye e-posta (Cari Ayarları'nda açıksa).
+Schedule::command('shop:send-due-reminders')->dailyAt('09:00')->withoutOverlapping();
+
 // Günlük veritabanı yedeği (storage/app/private/backups, en yeni BAYIYAZILIMI_BACKUP_KEEP adet).
 Schedule::command('bayi:backup')->dailyAt((string) config('bayiyazilimi.backup.at', '03:30'))->withoutOverlapping(60);
 

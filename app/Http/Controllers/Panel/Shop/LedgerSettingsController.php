@@ -21,7 +21,8 @@ use Inertia\Response;
 
 /**
  * Tanımlamalar › Cari Ayarları: ödeme yöntemlerinin en düşük
- * sipariş tutarı, vade uyarısı ve çek / senet portföyü (varsayılan kapalı).
+ * sipariş tutarı, vade uyarısı ve e-posta hatırlatması, bayiye kredi limiti
+ * gösterimi ve çek / senet portföyü (varsayılan kapalı).
  */
 class LedgerSettingsController extends Controller
 {
@@ -39,6 +40,9 @@ class LedgerSettingsController extends Controller
             'dueWarningDays' => ShopSettings::int('due_warning_days'),
             'chequesEnabled' => ShopSettings::bool('cheques_enabled'),
             'chequeWarningDays' => ShopSettings::int('cheque_warning_days'),
+            'dueRemindersEnabled' => ShopSettings::bool('due_reminders_enabled'),
+            'overdueReminderRepeatDays' => ShopSettings::int('overdue_reminder_repeat_days'),
+            'showCreditLimit' => ShopSettings::bool('show_credit_limit'),
         ]);
     }
 
@@ -49,7 +53,8 @@ class LedgerSettingsController extends Controller
             'min_amounts.*' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'due_warning_days' => ['required', 'integer', 'min:0', 'max:365'],
             'cheque_warning_days' => ['nullable', 'integer', 'min:0', 'max:365'],
-        ], [], ['min_amounts.*' => __('en düşük tutar'), 'due_warning_days' => __('vade uyarı süresi'), 'cheque_warning_days' => __('çek / senet uyarı süresi')]);
+            'overdue_reminder_repeat_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+        ], [], ['min_amounts.*' => __('en düşük tutar'), 'due_warning_days' => __('vade uyarı süresi'), 'cheque_warning_days' => __('çek / senet uyarı süresi'), 'overdue_reminder_repeat_days' => __('hatırlatma aralığı')]);
 
         // Portföyde (tahsil edilmemiş) çek / senet varken özellik kapatılamaz: kapanınca
         // portföy ekranı gizlenir ve bu evraklar yönetilemez hale gelir.
@@ -73,6 +78,9 @@ class LedgerSettingsController extends Controller
             'due_warning_days' => (string) (int) $data['due_warning_days'],
             'cheques_enabled' => $request->boolean('cheques_enabled'),
             'cheque_warning_days' => (string) (int) ($data['cheque_warning_days'] ?? ShopSettings::int('cheque_warning_days')),
+            'due_reminders_enabled' => $request->boolean('due_reminders_enabled'),
+            'overdue_reminder_repeat_days' => (string) (int) ($data['overdue_reminder_repeat_days'] ?? ShopSettings::int('overdue_reminder_repeat_days')),
+            'show_credit_limit' => $request->boolean('show_credit_limit'),
         ]);
 
         CatalogChangedEvent::dispatch(null, 'settings', 'updated', __('cari ayarlarını güncelledi.'), $request->user());

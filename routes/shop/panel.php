@@ -182,6 +182,7 @@ Route::prefix('shop')->name('shop.')->group(function () {
         Route::post('/{account}/adjustments', 'adjust')->name('adjust');
         Route::get('/{account}/export', 'export')->name('export');
         Route::get('/{account}/print', 'print')->name('print');
+        Route::post('/{account}/send', 'send')->name('send');
     });
 
     Route::controller(ChequeController::class)->prefix('cheques')->name('cheques.')->group(function () {

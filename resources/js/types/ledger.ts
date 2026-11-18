@@ -45,6 +45,8 @@ export type LedgerSummary = LedgerBalance & {
     /** Vadeli çalışma (Aşama 3): limit, kullanılabilir limit, risk, vadesi geçen. */
     terms?: 'prepaid' | 'credit';
     terms_label?: string;
+    /** Kredi limiti kutusu gösterilsin mi (bayiye: limit tanımlı + Cari Ayarları'nda açık; panelde her zaman). */
+    show_limit?: boolean;
     credit_limit?: string | null;
     available?: string | null;
     over_limit?: boolean;
@@ -95,4 +97,6 @@ export type LedgerData = {
     };
     /** Vadesi geçmiş ve yaklaşan açık borçlar (Aşama 3). */
     dues?: { overdue: LedgerDue[]; upcoming: LedgerDue[] };
+    /** Ekstre e-posta adresleri (yalnız panel). */
+    recipients?: string[] | null;
 };

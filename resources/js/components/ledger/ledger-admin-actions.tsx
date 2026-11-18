@@ -2,6 +2,7 @@ import { Form } from '@inertiajs/react';
 import {
     FileSpreadsheet,
     HandCoins,
+    Mail,
     Printer,
     ReceiptText,
     Save,
@@ -43,6 +44,7 @@ import {
     exportMethod,
     print,
     reverse,
+    send,
 } from '@/routes/panel/shop/ledger';
 import type { LedgerData, LedgerRow, Option } from '@/types';
 
@@ -80,6 +82,9 @@ export function LedgerAdminActions({
     const canAdjust = useCan('panel.shop.ledger.adjust');
     const canExport = useCan('panel.shop.ledger.export');
     const canPrint = useCan('panel.shop.ledger.print');
+    const canSend = useCan('panel.shop.ledger.send');
+    const [sendOpen, setSendOpen] = useState(false);
+    const recipients = ledger.recipients ?? [];
     const [collectOpen, setCollectOpen] = useState(false);
     const [adjustOpen, setAdjustOpen] = useState(false);
     const [type, setType] = useState(collectionTypes[0]?.value ?? 'cash');
@@ -131,6 +136,90 @@ export function LedgerAdminActions({
                     </a>
                 </Button>
             )}
+            {canSend && (
+                <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSendOpen(true)}
+                >
+                    <Mail />
+                    {t('E-postayla gönder')}
+                </Button>
+            )}
+
+            <Dialog open={sendOpen} onOpenChange={setSendOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {t('Ekstreyi e-postayla gönder')}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {ledger.filters.from || ledger.filters.to
+                                ? t(
+                                      'Seçili dönemin ekstresi (Excel ekli) aşağıdaki adreslere gönderilir.',
+                                  )
+                                : t(
+                                      'Tüm hareketleri içeren ekstre (Excel ekli) aşağıdaki adreslere gönderilir.',
+                                  )}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {recipients.length > 0 ? (
+                        <ul className="list-disc pl-5 text-sm">
+                            {recipients.map((email) => (
+                                <li key={email}>{email}</li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-destructive">
+                            {t(
+                                'Bu carinin aktif üyesi ya da fatura e-postası yok.',
+                            )}
+                        </p>
+                    )}
+                    <Form
+                        {...send.form(ledger.account_id)}
+                        options={{ preserveScroll: true }}
+                        onSuccess={() => setSendOpen(false)}
+                    >
+                        {({ processing }) => (
+                            <>
+                                <input
+                                    type="hidden"
+                                    name="from"
+                                    value={ledger.filters.from ?? ''}
+                                />
+                                <input
+                                    type="hidden"
+                                    name="to"
+                                    value={ledger.filters.to ?? ''}
+                                />
+                                <DialogFooter>
+                                    <DialogClose asChild>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            disabled={processing}
+                                        >
+                                            <X />
+                                            {t('Vazgeç')}
+                                        </Button>
+                                    </DialogClose>
+                                    <Button
+                                        type="submit"
+                                        disabled={
+                                            processing ||
+                                            recipients.length === 0
+                                        }
+                                    >
+                                        {processing ? <Spinner /> : <Mail />}
+                                        {t('Gönder')}
+                                    </Button>
+                                </DialogFooter>
+                            </>
+                        )}
+                    </Form>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={collectOpen} onOpenChange={setCollectOpen}>
                 <DialogContent className="max-h-[90vh] overflow-y-auto">

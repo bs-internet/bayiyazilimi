@@ -80,6 +80,23 @@ class Account extends Model
         return $this->hasMany(User::class);
     }
 
+    /**
+     * Cari yazışmalarının (ekstre, vade hatırlatması) gideceği adresler: hesabın
+     * aktif üyeleri + fatura e-postası (varsa), tekrarsız.
+     *
+     * @return list<string>
+     */
+    public function ledgerEmails(): array
+    {
+        $emails = User::query()->where('account_id', $this->id)->active()->pluck('email')->all();
+
+        if (filled($this->invoice_email)) {
+            $emails[] = (string) $this->invoice_email;
+        }
+
+        return array_values(array_unique(array_map(fn (string $e): string => mb_strtolower(trim($e)), array_filter($emails))));
+    }
+
     public function address(): HasOne
     {
         return $this->hasOne(Address::class);

@@ -43,7 +43,9 @@ final class LedgerPresenter
         return [
             'account_id' => $account->id,
             'currency' => Money::baseCode(),
-            'summary' => $this->summary($account),
+            'summary' => $this->summary($account, $admin),
+            // Ekstre gönderim adresleri (yalnız panel: "E-postayla gönder" onayında gösterilir).
+            'recipients' => $admin ? $account->ledgerEmails() : null,
             'filters' => ['from' => $fromDate?->toDateString(), 'to' => $toDate?->toDateString()],
             'dues' => $this->credit->dues($account, ShopSettings::int('due_warning_days')),
             'open_orders' => $this->ledger->openOrders($account->id),
@@ -60,10 +62,12 @@ final class LedgerPresenter
     /**
      * Cari özeti: bakiye (borçlu / alacaklı), çalışma şekli; vadeli hesapta
      * kredi limiti, risk, kullanılabilir limit, vadesi geçen ve onay bekleyen.
+     * Bayiye ($admin = false) limit yalnız tanımlıysa ve Cari Ayarları'nda
+     * gösterim açıksa (`show_credit_limit`) gösterilir (`show_limit`).
      *
      * @return array<string, mixed>
      */
-    public function summary(Account $account): array
+    public function summary(Account $account, bool $admin = true): array
     {
         $balance = $this->ledger->balance($account->id);
         $terms = CreditTerms::for($account);
@@ -85,6 +89,7 @@ final class LedgerPresenter
 
         return [
             ...$summary,
+            'show_limit' => $admin || ($terms->limit !== null && ShopSettings::bool('show_credit_limit')),
             'credit_limit' => $terms->limit !== null ? Money::format($terms->limit) : null,
             'risk' => Money::format($risk),
             'available' => $terms->limit !== null ? Money::format(Money::max(0, Money::sub($terms->limit, $risk))) : null,

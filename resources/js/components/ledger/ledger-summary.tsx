@@ -45,13 +45,14 @@ function Tile({
 export function LedgerSummaryCards({ ledger }: { ledger: LedgerData }) {
     const s = ledger.summary;
     const credit = s.terms === 'credit';
+    const showLimit = credit && s.show_limit !== false;
 
     return (
         <Card className="gap-0 overflow-hidden py-0">
             <div
                 className={cn(
                     'grid grid-cols-1 gap-px bg-border sm:grid-cols-2',
-                    credit && 'lg:grid-cols-4',
+                    credit && (showLimit ? 'lg:grid-cols-4' : 'lg:grid-cols-3'),
                 )}
             >
                 <Tile label={t('Bakiye')} hint={s.side_label}>
@@ -71,7 +72,7 @@ export function LedgerSummaryCards({ ledger }: { ledger: LedgerData }) {
                         {s.terms_label}
                     </Tile>
                 )}
-                {credit && (
+                {showLimit && (
                     <Tile
                         label={t('Kullanılabilir limit')}
                         tone={s.over_limit ? 'danger' : undefined}

@@ -37,6 +37,7 @@ final class ShopPermissions
                 'panel.shop.ledger.reverse' => __('Elle girilen cari kaydı iptal et'),
                 'panel.shop.ledger.export' => __('Cari ekstreyi Excel\'e aktar'),
                 'panel.shop.ledger.print' => __('Cari ekstreyi yazdır'),
+                'panel.shop.ledger.send' => __('Cari ekstreyi e-postayla gönder'),
                 'panel.shop.payment-notifications.index' => __('Havale bildirimlerini listele'),
                 'panel.shop.payment-notifications.receipt' => __('Havale bildirimi dekontunu görüntüle'),
                 'panel.shop.payment-notifications.approve' => __('Havale bildirimini onayla'),
