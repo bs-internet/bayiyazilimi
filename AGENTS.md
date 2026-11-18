@@ -117,7 +117,9 @@ düzenler `layouts/{panel,app}`.
 Üyeye ait modeller `App\Concerns\BelongsToAccount` kullanır: `account()` ilişkisi, koşullu genel
 kapsam ve `creating` kancası. `bind_account` ara katmanı (yalnız `/app` grubunda) giriş yapan
 üyenin hesabını bağlar; bağlıyken her sorgu `account_id`'ye göre süzülür ve yeni kayda
-`account_id` kendiliğinden yazılır. Panel, kuyruk ve seeder'da bağlı hesap yoktur, kapsam da yoktur.
+`account_id` kendiliğinden yazılır. `bind_account` middleware önceliğinde `SubstituteBindings`'ten
+öncedir: rota modeli kapsam altında bağlanır, başka hesabın kaydı 404 olur (controller'lardaki açık
+sahiplik kontrolleri ikinci savunmadır). Panel, kuyruk ve seeder'da bağlı hesap yoktur, kapsam da yoktur.
 Hesabı olmayan üye `BelongsToAccountScope::NO_ACCOUNT` olarak bağlanır: sorgular boş döner
 (kapsamsız kalıp her şeyi göstermez).
 
@@ -245,7 +247,12 @@ madde 1 gereğidir; müşterinin markası bunun yerine geçmez.
 
 - **Ayarlar:** `Setting` modeli (`Setting::allCached()`), `SettingsService` ve Genel Ayarlar ekranı.
   Satış / stok / cari ayarları `ShopSettings` üzerinden; eklentiler varsayılanlarını
-  `shop.settings.defaults` filtresiyle ekler.
+  `shop.settings.defaults` filtresiyle ekler. **Gizli ayarlar** (API anahtarı, şifre, imza tuzu):
+  `shop.settings.secret_keys` filtresiyle bildirilir ya da adından (`*_secret`, `*_password`, `*_token`,
+  `*_salt`, `*_api_key`, `*_merchant_key` …; `ShopSettings::SECRET_PATTERN`) tanınır. Veritabanında
+  şifreli (`enc:v1:` + `Crypt`) durur, `ShopSettings::all()`'a hiç girmez (vitrin sayfa verisi dahil
+  hiçbir yere toplu gönderilmez), yalnız `ShopSettings::get()` ile adıyla okunur; boş gönderilirse
+  üzerine yazılmaz. `APP_KEY` değişirse eski anahtar `APP_PREVIOUS_KEYS`'e yazılmalı.
 - **Medya:** çok biçimli `media` tablosu, `MediaService::attach/detach/reorder`, modelde `HasMedia`.
   Üyeye ait dosyalar `public|private/{hesap kodu}`, genel dosyalar `public|private/media` altında.
   Özel dosyalar `Media::temporaryUrl()` ile imzalı adresten verilir.
@@ -273,7 +280,8 @@ webhook ([routes/api.php](routes/api.php), rota adları `api.v1.*`). Tanım ayr�
   `stock:write`, `catalog:write`, `orders:read`, `orders:write`, `accounts:read`, `accounts:write`,
   `ledger:write`, `webhooks:manage`. Her rota
   `abilities:{yetenek}` ister. Kullanıcı yalnız karşılık gelen panel yetkisine sahip olduğu yeteneği
-  anahtara verebilir (`ApiAbilities::PERMISSIONS`). Eklentiler yetenek eklemek için `api.abilities` filtresini kullanır.
+  anahtara verebilir (`ApiAbilities::PERMISSIONS`); bu sınır her istekte yeniden uygulanır
+  (`PersonalAccessToken::can()`): sahibinin rolünden izin kalkarsa anahtar o yeteneği kullanamaz. Eklentiler yetenek eklemek için `api.abilities` filtresini kullanır.
 - **Ekran:** Ayarlar → API Anahtarları (`panel.settings.api-tokens.*`, `ApiTokenService`).
 - **Sınır:** `api` hız sınırlayıcısı, anahtar başına `BAYIYAZILIMI_API_RATE_LIMIT` (varsayılan 120/dk).
 - **Yanıtlar:** her zaman JSON, hata mesajları Türkçe ([ApiExceptionRenderer](app/Exceptions/ApiExceptionRenderer.php);
@@ -317,6 +325,7 @@ Başlıca kancalar:
 | `{area}.permissions.register` | [PermissionRegistry](app/Support/Registry/PermissionRegistry.php) — `source` = eklenti anahtarı |
 | `shop.payment.methods.register` | Ödeme yöntemi (`PaymentRegistry`) |
 | `shop.settings.defaults` | Ayar varsayılanları |
+| `shop.settings.secret_keys` | Gizli ayar anahtarları (şifreli saklanır, toplu ayar dizisine girmez) |
 | `api.abilities` | API yetenekleri |
 | `security.csp` | CSP'ye dış kaynak ekleme |
 | `site.public_access`, `shop.storefront_enabled`, `shop.customer_types` | Siteyi ziyaretçiye açma, vitrin alanları, müşteri (B2C) hesapları (vitrin kullanır) |
@@ -406,7 +415,8 @@ alanlar yalnız `Storefront::enabled()` iken görünür ve kapalıyken değerler
   `.env` yazar, migrate + seed, Super Admin oluşturur, `APP_ENV=production` ve
   `BAYIYAZILIMI_INSTALLED=true` yapar, bekleyen eklentileri bağımlılık sırasıyla `bayi:install` eder.
 - **Kurulu mu:** [InstallState](app/Support/Install/InstallState.php) — `.env` bayrağı; yoksa Super Admin'i
-  olan veritabanı kurulu sayılır ve bayrak yazılır. Kurulmamışken `EnsureInstalled` her isteği
+  olan veritabanı kurulu sayılır ve bayrak yazılır. Bayrak yokken veritabanına ulaşılamazsa canlı ortam
+  (`APP_ENV=production`) kurulu sayılır: kesinti sihirbazı açmaz. Kurulmamışken `EnsureInstalled` her isteği
   `/kurulum`'a yollar, oturum / önbellek / kuyruk dosya ve sync'e geçer, `Setting::allCached()` boş döner.
   Kurulu sistemde sihirbaz rotaları hiç kaydedilmez (konsol hariç). Sihirbaz veritabanına dokunmayan
   `installer` ara katman grubunda çalışır, kurulum önbellek kilidi altındadır.
@@ -416,7 +426,13 @@ alanlar yalnız `Storefront::enabled()` iken görünür ve kapalıyken değerler
   Sürüm: `App\Support\BayiYazilimi::VERSION`.
 - **Zamanlanmış görevler** ([routes/console.php](routes/console.php)): `shop:sync-rates` (hafta içi
   09:05 ve 15:45), `shop:expire-pending-payments` (5 dk), `shop:release-stock-reservations` (saatlik),
-  `shop:refresh-expired-stock` (00:10).
+  `shop:refresh-expired-stock` (00:10), `bayi:backup` (03:30; mysqldump, en yeni `BAYIYAZILIMI_BACKUP_KEEP`
+  yedek, [BackupService](app/Services/System/BackupService.php)) ve `BAYIYAZILIMI_QUEUE_VIA_SCHEDULER`
+  açıkken her dakika `queue:work --stop-when-empty` (paylaşımlı hostingde cron yeter).
+- **Hata bildirimi:** raporlanan her hata günlüğe yazılır; canlıda ayrıca [ErrorAlerts](app/Support/System/ErrorAlerts.php)
+  → `ErrorReportedEvent` → `BAYIYAZILIMI_ERROR_ALERTS_TO` adreslerine ya da aktif Super Admin'lere e-posta +
+  panel bildirimi (aynı hata `BAYIYAZILIMI_ERROR_ALERTS_THROTTLE` dakikada bir, saatte en çok 20). Bildirim
+  bilinçli olarak kuyruğa alınmaz (bozuk olan kuyruğun kendisi olabilir).
 
 ## Ön yüz kuralları
 

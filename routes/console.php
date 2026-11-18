@@ -22,3 +22,13 @@ Schedule::command('shop:release-stock-reservations')->hourly()->withoutOverlappi
 
 // Süresi dolan lotlar satılabilir stoktan düşülür (stok hareketi olmadan değişen tek durum).
 Schedule::command('shop:refresh-expired-stock')->dailyAt('00:10');
+
+// Günlük veritabanı yedeği (storage/app/private/backups, en yeni BAYIYAZILIMI_BACKUP_KEEP adet).
+Schedule::command('bayi:backup')->dailyAt((string) config('bayiyazilimi.backup.at', '03:30'))->withoutOverlapping(60);
+
+// Paylaşımlı hosting: kuyruk ayrı bir süreç yöneticisi olmadan da işlensin. Zamanlayıcı her
+// dakika kuyruğu boşaltır; en sonda tanımlıdır ki diğer görevleri bekletmesin. Kilit 2 dakikada
+// düşer (yarıda kesilen işleyici kuyruğu bir gün kilitli bırakmasın).
+if (config('bayiyazilimi.queue_via_scheduler')) {
+    Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3')->everyMinute()->withoutOverlapping(2);
+}

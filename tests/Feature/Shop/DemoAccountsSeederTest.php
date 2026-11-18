@@ -50,3 +50,10 @@ it('adds the demo customer only while customer accounts exist (vitrin)', functio
     expect($customer->isDealer())->toBeFalse()
         ->and(User::query()->where('email', 'musteri@musteri.com')->exists())->toBeFalse();
 });
+
+it('refuses to create the demo accounts in production', function () {
+    app()->detectEnvironment(fn () => 'production');
+
+    expect(fn () => app(DemoAccountsSeeder::class)->setContainer(app())->__invoke())->toThrow(RuntimeException::class);
+    expect(User::query()->where('email', 'like', '%@bayiyazilimi-demo.com')->exists())->toBeFalse();
+});

@@ -15,8 +15,8 @@ use Throwable;
  * yüklenmez.
  *
  * Değer `.env`'de yoksa (sihirbazdan önce kurulmuş sistem, `migrate --seed`
- * ile kurulan geliştirme ortamı) veritabanında kullanıcı varsa kurulu sayılır
- * ve değer `.env`'e yazılır — bu kontrol yalnız değer yokken yapılır.
+ * ile kurulan geliştirme ortamı) veritabanında Super Admin varsa kurulu sayılır
+ * ve değer `.env`'e yazılır — bu kontrol yalnız değer yokken yapılır (bkz. detect()).
  */
 final class InstallState
 {
@@ -38,13 +38,40 @@ final class InstallState
             return $this->installed = $value;
         }
 
-        if ($this->hasExistingData()) {
+        return $this->installed = $this->detect();
+    }
+
+    /**
+     * `.env` bayrağı yokken karar. Kurulumu kilitleyen asıl bilgi bayraktır; bu
+     * yol yalnız bayrak yazılmadan önce kurulmuş ya da `.env`'i elle değiştirilmiş
+     * sistem içindir.
+     *
+     * - Super Admin varsa kurulu: bayrak yazılır.
+     * - Veritabanına ulaşılamıyorsa canlı ortam (APP_ENV=production) kurulu
+     *   sayılır: geçici bir veritabanı kesintisi sihirbazı herkese açıp `.env`'e
+     *   başka bir veritabanı yazdırmaya izin vermemeli. Sihirbaz yalnız henüz
+     *   canlıya alınmamış (APP_ENV ≠ production) sistemde açılır; kurulum bitince
+     *   APP_ENV=production yazılır.
+     */
+    private function detect(): bool
+    {
+        if ((string) config('app.key') === '') {
+            return false;
+        }
+
+        $superAdmin = $this->superAdminState();
+
+        if ($superAdmin === true) {
             $this->markInstalled();
 
             return true;
         }
 
-        return $this->installed = false;
+        if ($superAdmin === null) {
+            return app()->isProduction();
+        }
+
+        return false;
     }
 
     public function markInstalled(): void
@@ -60,20 +87,11 @@ final class InstallState
     }
 
     /**
-     * Değer yokken kurulu sayılma koşulu: bir Super Admin var. Yalnız "kullanıcı var"
-     * yetmez: yarıda kalan kurulum (örnek veriler yüklenmiş, yönetici henüz
-     * oluşmamış) kurulu sayılır ve sihirbaz kapanırdı — giriş yapacak kimse olmazdı.
+     * Super Admin var mı: true / false; veritabanına ulaşılamıyorsa null (bilinmiyor).
+     * Yalnız "kullanıcı var" yetmez: yarıda kalan kurulum (örnek veriler yüklenmiş,
+     * yönetici henüz oluşmamış) kurulu sayılır ve sihirbaz kapanırdı.
      */
-    private function hasExistingData(): bool
-    {
-        if ((string) config('app.key') === '') {
-            return false;
-        }
-
-        return $this->hasSuperAdmin();
-    }
-
-    public function hasSuperAdmin(): bool
+    private function superAdminState(): ?bool
     {
         try {
             $roles = (string) config('permission.table_names.roles', 'roles');
@@ -89,7 +107,7 @@ final class InstallState
             return $superAdmin !== null
                 && DB::table($pivot)->where(config('permission.column_names.role_pivot_key') ?? 'role_id', $superAdmin)->exists();
         } catch (Throwable) {
-            return false;
+            return null;
         }
     }
 }

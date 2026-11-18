@@ -9,8 +9,6 @@ use App\Services\Panel\Settings\Modules\ModuleService;
 use App\Support\BayiYazilimi;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Process;
-use Throwable;
 
 /**
  * Güncelleme sonrası adımlar: yeni dosyalar yüklendikten / `git pull` ve
@@ -123,49 +121,11 @@ final class UpdateService
     }
 
     /**
-     * mysqldump ile `storage/app/private/backups/` altına SQL yedeği. Araç yoksa
-     * ya da başarısızsa null (güncelleme durmaz; kullanıcı uyarılır).
+     * Güncelleme öncesi veritabanı yedeği (BackupService). Araç yoksa ya da
+     * başarısızsa null (güncelleme durmaz; kullanıcı uyarılır).
      */
     public function backupDatabase(): ?string
     {
-        /** @var array{host?: string, port?: int|string, database?: string, username?: string, password?: string} $db */
-        $db = config('database.connections.'.config('database.default'), []);
-
-        if (config('database.default') !== 'mysql' && config('database.default') !== 'mariadb') {
-            return null;
-        }
-
-        $dir = storage_path('app/private/backups');
-        $relative = 'storage/app/private/backups/'.now()->format('Y-m-d-His').'.sql';
-        $path = base_path($relative);
-
-        try {
-            if (! is_dir($dir)) {
-                mkdir($dir, 0750, true);
-            }
-
-            $result = Process::timeout(600)
-                ->env(['MYSQL_PWD' => (string) ($db['password'] ?? '')])
-                ->run([
-                    'mysqldump',
-                    '--single-transaction',
-                    '--skip-lock-tables',
-                    '--host='.($db['host'] ?? '127.0.0.1'),
-                    '--port='.($db['port'] ?? '3306'),
-                    '--user='.($db['username'] ?? 'root'),
-                    '--result-file='.$path,
-                    (string) ($db['database'] ?? ''),
-                ]);
-        } catch (Throwable) {
-            return null;
-        }
-
-        if (! $result->successful() || ! is_file($path) || filesize($path) === 0) {
-            @unlink($path);
-
-            return null;
-        }
-
-        return $relative;
+        return app(BackupService::class)->database();
     }
 }

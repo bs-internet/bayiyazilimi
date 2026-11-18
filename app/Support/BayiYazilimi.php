@@ -11,5 +11,5 @@ namespace App\Support;
  */
 final class BayiYazilimi
 {
-    public const VERSION = '1.1.1';
+    public const VERSION = '1.1.2';
 }

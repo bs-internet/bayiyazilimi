@@ -101,4 +101,49 @@ return [
     |
     */
     'csp' => env('BAYIYAZILIMI_CSP', 'report'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Yedekleme
+    |--------------------------------------------------------------------------
+    |
+    | `bayi:backup` her gece veritabanının yedeğini `storage/app/private/backups`
+    | altına alır (sunucuda mysqldump gerekir); en yeni `keep` yedek tutulur.
+    |
+    */
+    'backup' => [
+        'keep' => (int) env('BAYIYAZILIMI_BACKUP_KEEP', 14),
+        'at' => env('BAYIYAZILIMI_BACKUP_AT', '03:30'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Kuyruk (paylaşımlı hosting)
+    |--------------------------------------------------------------------------
+    |
+    | true: zamanlayıcı her dakika kuyruğu boşaltır (`queue:work --stop-when-empty`),
+    | yalnız cron kurmak yeter. Supervisor ile sürekli çalışan bir işleyici varsa
+    | false yapılabilir (ikisi birlikte de sorunsuz çalışır).
+    |
+    */
+    'queue_via_scheduler' => filter_var(env('BAYIYAZILIMI_QUEUE_VIA_SCHEDULER', true), FILTER_VALIDATE_BOOL),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Hata Bildirimi
+    |--------------------------------------------------------------------------
+    |
+    | Raporlanan her hata günlüğe yazılır; ayrıca e-posta + panel bildirimi gider.
+    | enabled: boşsa yalnız canlıda (APP_ENV=production) açık · to: virgülle ayrılmış
+    | adresler (boşsa aktif Super Admin'ler) · throttle: aynı hata için en az kaç
+    | dakikada bir bildirim gönderilir.
+    |
+    */
+    'error_alerts' => [
+        'enabled' => env('BAYIYAZILIMI_ERROR_ALERTS') === null
+            ? null
+            : filter_var(env('BAYIYAZILIMI_ERROR_ALERTS'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE),
+        'to' => env('BAYIYAZILIMI_ERROR_ALERTS_TO', ''),
+        'throttle' => (int) env('BAYIYAZILIMI_ERROR_ALERTS_THROTTLE', 60),
+    ],
 ];

@@ -40,7 +40,11 @@ it('lets modules add sources through the security.csp filter', function () {
 
     $policy = (string) $this->get(route('login'))->headers->get('Content-Security-Policy-Report-Only');
 
-    expect($policy)->toContain("frame-src 'self' https://odeme.example.com");
+    // Kurulu başka eklentiler (vitrin: harita çerçevesi) de kaynak ekleyebilir; yönergenin içinde aranır.
+    $frameSrc = collect(explode(';', $policy))->map(fn (string $d) => trim($d))->first(fn (string $d) => str_starts_with($d, 'frame-src '));
+
+    expect($frameSrc)->toStartWith("frame-src 'self'")
+        ->and(explode(' ', (string) $frameSrc))->toContain('https://odeme.example.com');
 });
 
 it('logs violation reports without query strings and skips browser extensions', function () {

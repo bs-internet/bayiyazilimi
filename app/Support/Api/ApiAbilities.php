@@ -91,8 +91,17 @@ final class ApiAbilities
     {
         return array_values(array_filter(
             self::keys(),
-            fn (string $ability): bool => ! isset(self::PERMISSIONS[$ability]) || $user->can(self::PERMISSIONS[$ability]),
+            fn (string $ability): bool => self::allowedFor($user, $ability),
         ));
+    }
+
+    /**
+     * Kullanıcı bu yetkiyi şu an kullanabilir mi: panelde aynı işi yapma izni
+     * hâlâ var mı (rolü değişmiş olabilir). Eşlemesi olmayan yetki serbesttir.
+     */
+    public static function allowedFor(User $user, string $ability): bool
+    {
+        return ! isset(self::PERMISSIONS[$ability]) || $user->can(self::PERMISSIONS[$ability]);
     }
 
     /**

@@ -44,6 +44,7 @@ use App\Support\Modules\ModuleState;
 use App\Support\Payments\HostedCardGateway;
 use App\Support\Payments\PaymentGateway;
 use App\Support\Payments\PaymentRegistry;
+use App\Support\Payments\ReconcilesPayments;
 use App\Support\Payments\RefundsPayments;
 use Database\Seeders\ShopSeeder;
 use Illuminate\Http\Client\ConnectionException;
@@ -126,7 +127,7 @@ it('records a late provider payment for a cancelled order without reopening it',
     $stock = $this->product->fresh()->stock;
 
     $payment = $order->payments()->create([
-        'method' => 'iyzico', 'provider' => 'iyzico', 'merchant_oid' => Payment::newReference('K'),
+        'method' => 'test_card', 'provider' => 'test_card', 'merchant_oid' => Payment::newReference('K'),
         'amount' => $order->grand_total, 'currency_code' => 'TRY', 'status' => PaymentStatus::Pending,
     ]);
 
@@ -147,7 +148,7 @@ it('does not leave a second card payment pending when the order was already paid
     $orders->markPaid($order, $this->admin);
 
     $late = $order->payments()->create([
-        'method' => 'iyzico', 'provider' => 'iyzico', 'merchant_oid' => Payment::newReference('K'),
+        'method' => 'test_card', 'provider' => 'test_card', 'merchant_oid' => Payment::newReference('K'),
         'amount' => $order->grand_total, 'currency_code' => 'TRY', 'status' => PaymentStatus::Pending,
     ]);
 
@@ -350,7 +351,7 @@ it('cancels an on-account order left awaiting approval past the reservation peri
 it('lets an admin settle a refund left pending, but not while it may still be in flight', function () {
     $order = ($this->place)();
     $payment = $order->payments()->create([
-        'method' => 'iyzico', 'provider' => 'iyzico', 'merchant_oid' => Payment::newReference('K'),
+        'method' => 'test_card', 'provider' => 'test_card', 'merchant_oid' => Payment::newReference('K'),
         'amount' => $order->grand_total, 'currency_code' => 'TRY', 'status' => PaymentStatus::Pending,
     ]);
     app(OrderService::class)->markPaid($order->fresh(), null, 'Kartla ödendi.', $payment);
@@ -510,4 +511,76 @@ it('does not put the payment of a failed order back to pending', function () {
     // Doğrudan "Ödendi" yapılabilir: sipariş hazırlanmaya geçer.
     $orders->markPaid($order->fresh(), $this->admin);
     expect($order->fresh()->status)->toBe(OrderStatus::Processing);
+});
+
+it('times out a card payment even when the provider cannot be asked, and keeps a late success as unapplied', function () {
+    Event::fake([UnappliedPaymentReceivedEvent::class]);
+    $order = ($this->place)();
+    $order->forceFill(['payment_method' => 'test_card'])->save();
+    $order->payments()->update(['status' => PaymentStatus::Cancelled]);
+    $payment = $order->payments()->create([
+        'method' => 'test_card', 'provider' => 'test_card', 'merchant_oid' => Payment::newReference('K'),
+        'amount' => $order->grand_total, 'currency_code' => 'TRY', 'status' => PaymentStatus::Pending,
+    ]);
+    $stockAfterOrder = $this->product->fresh()->stock;
+
+    // Sağlayıcıya ulaşılamıyor: mutabakat hata verir, zaman aşımı yine işler.
+    $gateway = Mockery::mock(HostedCardGateway::class, ReconcilesPayments::class)->makePartial();
+    $gateway->shouldReceive('key')->andReturn('test_card');
+    $gateway->shouldReceive('label')->andReturn('Test Kartı');
+    $gateway->shouldReceive('reconcile')->andThrow(new ConnectionException('sağlayıcı yanıt vermiyor'));
+    app(PaymentRegistry::class)->add($gateway);
+
+    $this->travel(61)->minutes();
+    $this->artisan('shop:expire-pending-payments')->assertSuccessful();
+
+    expect($order->fresh()->status)->toBe(OrderStatus::Failed)
+        ->and($payment->fresh()->status)->toBe(PaymentStatus::Failed)
+        ->and($this->product->fresh()->stock)->toBe($stockAfterOrder + 1);
+
+    // Sağlayıcıdan geç gelen başarı: ödeme kaybolmaz, sipariş kendiliğinden yeniden açılmaz.
+    (fn () => $this->complete($payment->fresh(), (string) $payment->amount, 1, []))->call($gateway);
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Paid)
+        ->and($order->fresh()->status)->toBe(OrderStatus::Failed)
+        ->and($order->fresh()->histories()->pluck('note')->implode(' '))->toContain('müşteriye iade edilmeli');
+    Event::assertDispatched(UnappliedPaymentReceivedEvent::class);
+});
+
+it('applies the order payment status rules in the service', function (Closure $prepare, PaymentStatus $target, ?string $error) {
+    $order = ($this->place)();
+    $orders = app(OrderService::class);
+    $prepare($orders, $order, $this->admin);
+
+    $change = fn () => $orders->updatePaymentStatus($order->fresh(), $target, $this->admin);
+
+    if ($error !== null) {
+        $before = $order->fresh()->payment_status;
+        expect($change)->toThrow(ShopException::class, $error);
+        expect($order->fresh()->payment_status)->toBe($before);
+
+        return;
+    }
+
+    $change();
+    expect($order->fresh()->payment_status)->toBe($target);
+})->with([
+    'unpaid → refunded is refused' => [fn () => null, PaymentStatus::Refunded, 'İade Edildi'],
+    'processing order cannot be failed' => [fn ($orders, $order, $admin) => $orders->changeStatus($order, OrderStatus::Processing, [], $admin), PaymentStatus::Failed, 'Yalnız ödemesi beklenen'],
+    'pending → failed' => [fn () => null, PaymentStatus::Failed, null],
+    'paid → refunded' => [fn ($orders, $order, $admin) => $orders->markPaid($order, $admin), PaymentStatus::Refunded, null],
+    'paid → back to pending' => [fn ($orders, $order, $admin) => $orders->markPaid($order, $admin), PaymentStatus::Pending, null],
+    'failed → pending is refused' => [fn ($orders, $order) => $orders->markPaymentFailed($order, 'Kart reddedildi'), PaymentStatus::Pending, 'Başarısız siparişin'],
+]);
+
+it('reverses the ledger credit when a paid order is set back to pending', function () {
+    $order = ($this->place)();
+    $orders = app(OrderService::class);
+    $orders->markPaid($order, $this->admin);
+    $payment = $order->payments()->where('status', PaymentStatus::Paid)->sole();
+
+    $orders->updatePaymentStatus($order->fresh(), PaymentStatus::Pending, $this->admin);
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Cancelled)
+        ->and($order->fresh()->paid_at)->toBeNull();
 });

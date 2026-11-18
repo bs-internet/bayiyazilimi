@@ -10,6 +10,8 @@ use App\Models\District;
 use App\Models\Setting;
 use App\Services\Support\FileService;
 use App\Support\Shop\SystemDefaults;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Crypt;
 
 /**
  * Mağazaya ait ayarların (settings tablosu, `shop` grubu) tek erişim noktası.
@@ -132,9 +134,19 @@ class ShopSettings
     ];
 
     /**
-     * Gizli değerler: panele maskeli gönderilir, boş bırakılırsa üzerine yazılmaz.
+     * Gizli değerler (API anahtarı, şifre, imza tuzu …): veritabanında şifreli
+     * saklanır, all() ile hiçbir yere toplu gönderilmez, boş bırakılırsa üzerine
+     * yazılmaz. Eklentiler kendi anahtarlarını `shop.settings.secret_keys`
+     * filtresiyle bildirir; bildirmeyi unutan eklentinin anahtarı da adından
+     * (SECRET_PATTERN) gizli sayılır.
      */
     public const SECRET_KEYS = [];
+
+    /** Adından gizli olduğu anlaşılan anahtarlar: *_secret, *_password, *_token, *_salt, *_api_key … */
+    public const SECRET_PATTERN = '/(^|_)(secret|password|token|salt)$|(^|_)(api|secret|service|merchant|private|client)_key$/';
+
+    /** Çekirdeğin şifrelediği değerin ön eki (eklentinin kendi şifrelediği değerden ayırt etmek için). */
+    private const ENCRYPTED_PREFIX = 'enc:v1:';
 
     /**
      * Çekirdek + modüllerin (`shop.settings.defaults`) anahtarları ve varsayılanları.
@@ -146,11 +158,55 @@ class ShopSettings
         return once(fn () => [...self::DEFAULTS, ...hooks()->apply('shop.settings.defaults', [])]);
     }
 
+    /**
+     * Gizli anahtarlar: çekirdek listesi + eklentilerin `shop.settings.secret_keys`
+     * filtresi + adı SECRET_PATTERN'e uyan tanımlı anahtarlar.
+     *
+     * @return list<string>
+     */
+    public static function secretKeys(): array
+    {
+        return once(function (): array {
+            $declared = hooks()->apply('shop.settings.secret_keys', []);
+            $byName = array_filter(array_keys(self::defaults()), fn (string $key): bool => preg_match(self::SECRET_PATTERN, $key) === 1);
+
+            return array_values(array_unique([...self::SECRET_KEYS, ...(is_array($declared) ? $declared : []), ...$byName]));
+        });
+    }
+
+    public static function isSecret(string $key): bool
+    {
+        return in_array($key, self::secretKeys(), true) || preg_match(self::SECRET_PATTERN, $key) === 1;
+    }
+
     public static function get(string $key): ?string
     {
         $value = Setting::get($key);
 
+        if ($value !== null && str_starts_with($value, self::ENCRYPTED_PREFIX)) {
+            try {
+                return Crypt::decryptString(substr($value, strlen(self::ENCRYPTED_PREFIX)));
+            } catch (DecryptException) {
+                // Uygulama anahtarı değişmiş (APP_PREVIOUS_KEYS verilmemiş): değer okunamaz, yeniden girilmeli.
+                return '';
+            }
+        }
+
         return $value ?? (self::defaults()[$key] ?? null);
+    }
+
+    /**
+     * Gizli değeri şifreli biçime çevirir (zaten şifreliyse dokunmaz). Değer
+     * eklentinin kendi şifrelediği metin olabilir; get() yalnız çekirdeğin
+     * katmanını açar, eklentinin katmanı eklentiye kalır.
+     */
+    public static function encryptValue(string $value): string
+    {
+        if ($value === '' || str_starts_with($value, self::ENCRYPTED_PREFIX)) {
+            return $value;
+        }
+
+        return self::ENCRYPTED_PREFIX.Crypt::encryptString($value);
     }
 
     /**
@@ -205,6 +261,10 @@ class ShopSettings
     }
 
     /**
+     * Gizli olmayan tüm ayarlar. Gizli anahtarlar (secretKeys()) bilerek dışarıda
+     * kalır: bu dizi ekranlara / vitrine toplu gönderilebilir. Gizli değer yalnız
+     * get() ile, adıyla okunur.
+     *
      * @return array<string, string|null>
      */
     public static function all(): array
@@ -212,7 +272,9 @@ class ShopSettings
         $result = [];
 
         foreach (array_keys(self::defaults()) as $key) {
-            $result[$key] = self::get($key);
+            if (! self::isSecret($key)) {
+                $result[$key] = self::get($key);
+            }
         }
 
         return $result;
@@ -228,12 +290,18 @@ class ShopSettings
                 continue;
             }
 
-            if (in_array($key, self::SECRET_KEYS, true) && ($value === null || $value === '')) {
+            $secret = self::isSecret($key);
+
+            if ($secret && ($value === null || $value === '')) {
                 continue;
             }
 
             if (is_bool($value)) {
                 $value = $value ? '1' : '0';
+            }
+
+            if ($secret) {
+                $value = self::encryptValue((string) $value);
             }
 
             // Boşaltılan alan '' olarak saklanır; null kalsaydı get() varsayılana

@@ -15,6 +15,7 @@ use App\Services\Panel\Settings\Permissions\PermissionService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -26,7 +27,10 @@ use Spatie\Permission\PermissionRegistrar;
  *    korunur), yoksa yeni hesap açılır. Müşteri demo hesabı yalnız vitrinle
  *    (müşteri hesapları varken); İçerik Editörü rolü ve hesabı vitrin modülündedir.
  *
- * Tekrar çalıştırılabilir: php artisan db:seed --class=DemoAccountsSeeder --force
+ * Tekrar çalıştırılabilir: php artisan db:seed --class=DemoAccountsSeeder
+ *
+ * Herkesin bildiği şifreyle Super Admin oluşturduğu için canlı ortamda
+ * (APP_ENV=production) çalışmayı reddeder.
  */
 class DemoAccountsSeeder extends Seeder
 {
@@ -34,6 +38,8 @@ class DemoAccountsSeeder extends Seeder
 
     public function run(PermissionService $permissions): void
     {
+        throw_if(app()->isProduction(), RuntimeException::class, __('DemoAccountsSeeder canlı ortamda çalıştırılamaz.'));
+
         DB::transaction(function () use ($permissions): void {
             $this->discoverPermissions($permissions);
 

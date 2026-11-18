@@ -157,6 +157,9 @@ test('modules shipped in the package are set up during installation', function (
 
     expect(app(UpdateService::class)->pendingModules())->toBe(['demo', 'demo-addon']);
 
+    // Projede kurulu gerçek eklentiler (vendor) tablo oluşturulurken kayıt edilmiş olabilir; yalnız pakettekiler eklenmeli.
+    $before = InstalledModule::query()->pluck('key')->all();
+
     $this->withSession(['install.database' => true])->post('/kurulum', [
         'app_name' => 'Örnek Ticaret',
         'admin_name' => 'Ayşe Yılmaz',
@@ -166,7 +169,7 @@ test('modules shipped in the package are set up during installation', function (
         'sample_data' => '0',
     ])->assertOk();
 
-    expect(InstalledModule::query()->pluck('key')->sort()->values()->all())->toBe(['demo', 'demo-addon'])
+    expect(InstalledModule::query()->whereNotIn('key', $before)->pluck('key')->sort()->values()->all())->toBe(['demo', 'demo-addon'])
         ->and(app(UpdateService::class)->pending())->toBeFalse();
 
     @unlink($statePath);
@@ -246,6 +249,39 @@ test('an existing system without the install flag counts as installed and gets t
     expect($state->installed())->toBeTrue()
         ->and(file_get_contents($this->envPath))->toContain('BAYIYAZILIMI_INSTALLED=true');
 });
+
+/**
+ * Bayrak yokken veritabanına ulaşılamıyor: varsayılan bağlantı kapalı bir porta
+ * yönlenir (açık test bağlantısı etkilenmez), ortam verilen değere alınır.
+ */
+function installStateWithoutDatabase(string $environment): bool
+{
+    config([
+        'bayiyazilimi.installed' => null,
+        'database.connections.unreachable' => [...config('database.connections.mysql'), 'port' => 1],
+        'database.default' => 'unreachable',
+    ]);
+    $previous = app()->environment();
+    app()->instance('env', $environment);
+
+    try {
+        return (new InstallState(app(EnvironmentFile::class)))->installed();
+    } finally {
+        app()->instance('env', $previous);
+        config(['database.default' => 'mysql']);
+    }
+}
+
+test('a database outage does not reopen the installer on a live system without the flag', function () {
+    expect(installStateWithoutDatabase('production'))->toBeTrue()
+        // Bayrak tahminle yazılmaz: veritabanı dönünce Super Admin denetimi yeniden yapılır.
+        ->and(file_get_contents($this->envPath))->not->toContain('BAYIYAZILIMI_INSTALLED');
+});
+
+test('an unreachable database before going live still means a fresh install', function () {
+    expect(installStateWithoutDatabase('local'))->toBeFalse();
+});
+
 test('the setup command does nothing on an installed system', function () {
     $this->artisan('bayi:setup')->expectsOutputToContain('Sistem zaten kurulu.')->assertSuccessful();
 });

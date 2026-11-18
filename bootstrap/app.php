@@ -16,6 +16,7 @@ use App\Http\Middleware\SetSecurityHeaders;
 use App\Support\Install\InstallState;
 use App\Support\Modules\ModulePackageManifest;
 use App\Support\Modules\ModuleState;
+use App\Support\System\ErrorAlerts;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Filesystem\Filesystem;
@@ -93,6 +94,11 @@ $app = Application::configure(basePath: dirname(__DIR__))
             SetSecurityHeaders::class,
         ]);
 
+        // Hesap kapsamı rota modeli bağlanmadan önce kurulur: /app altında başka bir
+        // hesabın kaydı (sipariş, teklif, adres …) bağlamada bulunamaz (404); controller'daki
+        // açık sahiplik kontrolleri ikinci savunma olarak kalır.
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: BindCurrentAccount::class);
+
         // Kurulmamış sistemde her istek kurulum sihirbazına gider.
         $middleware->prepend(EnsureInstalled::class);
 
@@ -114,6 +120,9 @@ $app = Application::configure(basePath: dirname(__DIR__))
         // hata mesajları Türkçedir. Doğrulama hataları Laravel'in 422 biçimindedir.
         $exceptions->shouldRenderJsonWhen(fn (Request $request): bool => $request->is('api/*') || $request->expectsJson());
         $exceptions->render(fn (Throwable $e, Request $request) => ApiExceptionRenderer::render($e, $request));
+
+        // Raporlanan hata günlüğe yazılır; canlıda yöneticilere ayrıca bildirilir (ErrorAlerts).
+        $exceptions->report(fn (Throwable $e) => ErrorAlerts::capture($e));
     })->create();
 
 // Panelden kapatılan modüllerin paketleri auto-discovery'de atlanır (bkz. ModulePackageManifest).

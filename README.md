@@ -74,17 +74,34 @@ bitince sihirbaz kapanır. Dosyaları yükledikten sonra kurulumu bekletmeden ta
 ## Canlı ortam ayarları
 
 **Zamanlanmış görevler.** Kur güncelleme, süresi dolan kart ödemeleri, stok
-rezervasyonları ve lot süreleri zamanlayıcıyla çalışır. Cron'a ekleyin:
+rezervasyonları, lot süreleri, günlük veritabanı yedeği ve (varsayılan olarak) kuyruk
+zamanlayıcıyla çalışır. Cron'a ekleyin:
 
 ```
 * * * * * cd /yol/bayiyazilimi && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-**Kuyruk.** E-postalar ve bildirimler kuyrukla gönderilir. Supervisor gibi bir süreç
-yöneticisiyle sürekli çalıştırın:
+**Kuyruk.** E-postalar ve bildirimler kuyrukla gönderilir. Zamanlayıcı kuyruğu her dakika
+boşaltır; paylaşımlı hostingde yalnız cron yeter. VPS'te Supervisor gibi bir süreç
+yöneticisiyle sürekli bir işleyici çalıştırabilirsiniz (o zaman isterseniz
+`BAYIYAZILIMI_QUEUE_VIA_SCHEDULER=false`):
 
 ```bash
 php artisan queue:work --tries=3
+```
+
+**Yedek.** `bayi:backup` her gece 03:30'da veritabanının yedeğini
+`storage/app/private/backups` altına alır (sunucuda `mysqldump` gerekir) ve en yeni 14
+yedeği tutar (`BAYIYAZILIMI_BACKUP_KEEP`, saat: `BAYIYAZILIMI_BACKUP_AT`). Yedekler aynı
+sunucudadır; sunucu dışına (hosting yedeği, uzak depo) ayrıca kopyalayın. Yedek alınamazsa
+hata bildirimi gönderilir.
+
+**Hata bildirimi.** Canlıda oluşan hatalar günlüğe (`storage/logs`) yazılır ve aktif Super
+Admin'lere e-posta + panel bildirimi olarak gider; aynı hata saatte bir kez bildirilir.
+Başka adreslere göndermek için:
+
+```
+BAYIYAZILIMI_ERROR_ALERTS_TO=teknik@alanadi.com,nobetci@alanadi.com
 ```
 
 **E-posta.** Gönderim ayarları `.env` dosyasındaki `MAIL_*` satırlarındadır (SMTP sunucusu,
