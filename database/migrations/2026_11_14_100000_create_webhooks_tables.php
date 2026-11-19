@@ -76,6 +76,7 @@ return new class extends Migration
         ));
 
         Role::query()->whereHas('permissions', fn ($q) => $q->whereKey($store->getKey()))
+            ->with('permissions')
             ->get()
             ->each(fn (Role $role) => $role->givePermissionTo($created->values()->all()));
 

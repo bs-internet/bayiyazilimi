@@ -16,7 +16,9 @@ use App\Models\Currency;
 use App\Models\DealerGroup;
 use App\Models\DueReminder;
 use App\Models\Order;
+use App\Models\Permission;
 use App\Models\Product;
+use App\Models\Role;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Notifications\Shop\AccountStatementNotification;
@@ -259,4 +261,14 @@ it('limits sending the statement to ten times a minute', function () {
 
     $this->post(route('panel.shop.ledger.send', $this->account->id))->assertTooManyRequests();
     Notification::assertSentOnDemandTimes(AccountStatementNotification::class, 10);
+});
+
+it('grants the statement e-mail permission to roles that can export the statement on an installed system', function () {
+    Permission::query()->where('name', 'panel.shop.ledger.send')->forceDelete();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    // Kurulu sistemde göç: tablo zaten var, yetki yok (yarıda kalmış deneme dahil). Tembel yükleme kapalıyken de çalışmalı.
+    (require database_path('migrations/2026_11_19_100000_create_due_reminders_table.php'))->up();
+
+    expect(Role::query()->where('name', 'Admin')->firstOrFail()->hasPermissionTo('panel.shop.ledger.send'))->toBeTrue();
 });

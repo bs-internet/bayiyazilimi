@@ -23,15 +23,19 @@ return new class extends Migration
 
     public function up(): void
     {
-        Schema::create('due_reminders', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->foreignUuid('account_transaction_id')->constrained()->cascadeOnDelete();
-            $table->string('stage', 16);
-            $table->timestamp('sent_at');
-            $table->timestamps();
+        // MySQL'de tablo oluşturma geri alınmaz: yetki adımı yarıda kalan bir önceki
+        // denemenin tablosu varsa yeniden oluşturulmaz.
+        if (! Schema::hasTable('due_reminders')) {
+            Schema::create('due_reminders', function (Blueprint $table) {
+                $table->uuid('id')->primary();
+                $table->foreignUuid('account_transaction_id')->constrained()->cascadeOnDelete();
+                $table->string('stage', 16);
+                $table->timestamp('sent_at');
+                $table->timestamps();
 
-            $table->unique(['account_transaction_id', 'stage']);
-        });
+                $table->unique(['account_transaction_id', 'stage']);
+            });
+        }
 
         $export = Permission::query()->where('name', 'panel.shop.ledger.export')->where('guard_name', 'web')->first();
 
@@ -45,6 +49,7 @@ return new class extends Migration
         );
 
         Role::query()->whereHas('permissions', fn ($q) => $q->whereKey($export->getKey()))
+            ->with('permissions')
             ->get()
             ->each(fn (Role $role) => $role->givePermissionTo($send));
 
