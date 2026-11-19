@@ -182,7 +182,8 @@ Route::prefix('shop')->name('shop.')->group(function () {
         Route::post('/{account}/adjustments', 'adjust')->name('adjust');
         Route::get('/{account}/export', 'export')->name('export');
         Route::get('/{account}/print', 'print')->name('print');
-        Route::post('/{account}/send', 'send')->name('send');
+        // Yanlışlıkla art arda gönderim bayiye yağmasın: yönetici başına dakikada 10.
+        Route::post('/{account}/send', 'send')->middleware('throttle:10,1')->name('send');
     });
 
     Route::controller(ChequeController::class)->prefix('cheques')->name('cheques.')->group(function () {

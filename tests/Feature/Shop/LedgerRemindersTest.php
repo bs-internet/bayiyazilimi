@@ -249,3 +249,14 @@ it('sends the admins one daily digest of all dealers when switched on', function
     $mail = (new DueDigestMail(Notification::sent($this->admin, DueDigestNotification::class)->first()->rows, true, true))->render();
     expect($mail)->toContain($this->account->code)->toContain('en eski');
 });
+
+it('limits sending the statement to ten times a minute', function () {
+    $this->actingAs($this->admin);
+
+    foreach (range(1, 10) as $i) {
+        $this->post(route('panel.shop.ledger.send', $this->account->id))->assertRedirect();
+    }
+
+    $this->post(route('panel.shop.ledger.send', $this->account->id))->assertTooManyRequests();
+    Notification::assertSentOnDemandTimes(AccountStatementNotification::class, 10);
+});

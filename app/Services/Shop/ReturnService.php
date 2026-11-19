@@ -250,7 +250,7 @@ class ReturnService
             ->pluck('refund_amount')->all());
         $full = $refundedTotal->isGreaterThanOrEqualTo(Money::decimal($order->grand_total));
 
-        if ($full && in_array($order->payment_status, [PaymentStatus::Paid, PaymentStatus::Partial], true)) {
+        if ($full && $order->payment_status->canTransitionTo(PaymentStatus::Refunded)) {
             $order->forceFill(['payment_status' => PaymentStatus::Refunded])->save();
         }
 

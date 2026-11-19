@@ -398,6 +398,7 @@ class OrderService
                 'order_id' => $order->id,
             ])->save();
 
+            $order->payment_status->assertTransition(PaymentStatus::Paid);
             $order->forceFill([
                 'payment_status' => PaymentStatus::Paid,
                 'paid_at' => now(),
@@ -494,6 +495,7 @@ class OrderService
             // Ödemesi başarısız sipariş stok tutmaz; yönetici ödendi işaretlerse markPaid tekrar düşer.
             $this->stock->restoreForOrder($order);
 
+            $order->payment_status->assertTransition(PaymentStatus::Failed);
             $order->forceFill([
                 'payment_status' => PaymentStatus::Failed,
                 'status' => OrderStatus::Failed,
@@ -558,6 +560,7 @@ class OrderService
                     'failed_reason' => Str::limit($note, 250),
                 ]);
 
+                $order->payment_status->assertTransition(PaymentStatus::Failed);
                 $order->forceFill(['status' => OrderStatus::Failed, 'payment_status' => PaymentStatus::Failed])->save();
                 $this->releaseQuoteOfFailedOrder($order);
             } else {
@@ -810,6 +813,7 @@ class OrderService
             }
 
             $order->refresh();
+            $order->payment_status->assertTransition($status);
             $order->forceFill([
                 'payment_status' => $status,
                 'paid_at' => $status === PaymentStatus::Pending ? null : $order->paid_at,
@@ -895,6 +899,11 @@ class OrderService
      */
     private function lockOrder(Order $order): void
     {
+        // Kilit sırası her yolda aynı: önce siparişin ödeme satırları, sonra sipariş.
+        // Kart sürücüsü (HostedCardGateway::complete / fail) ve iade ödemeyi önce kilitler;
+        // burada ters sıra (sipariş → ödeme) süre aşımıyla eşzamanlı bildirimde kilitlenmeye yol açardı.
+        Payment::query()->withoutGlobalScopes()->where('order_id', $order->id)->orderBy('id')->lockForUpdate()->pluck('id');
+
         $locked = Order::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($order->id);
         $order->setRawAttributes($locked->getAttributes(), true);
     }

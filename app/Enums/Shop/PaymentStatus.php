@@ -26,6 +26,49 @@ enum PaymentStatus: string
     }
 
     /**
+     * Siparişin ödeme durumu geçiş haritası (`orders.payment_status`). Durumu
+     * yazan her yol (OrderService::markPaid / markPaymentFailed / releaseReservation /
+     * updatePaymentStatus, LedgerService::reallocate, PaymentRefundService,
+     * ReturnService) yazmadan önce `assertTransition()` ile bu haritaya bakar;
+     * her yolun kendi iş kuralı (ör. "yalnız bekleyen sipariş başarısız olur")
+     * ayrıca geçerlidir. `Cancelled` yalnız ödeme (tahsilat) kayıtlarındadır.
+     *
+     * - Bekliyor → Kısmen / Ödendi (tahsilat, sağlayıcı, yönetici), Başarısız (sağlayıcı, süre, yönetici)
+     * - Kısmen → Ödendi, Bekliyor (tahsilat ters kaydı / yönetici), Başarısız (süre), İade Edildi
+     * - Ödendi → Bekliyor / Kısmen (yönetici geri alır, vadeli siparişte tahsilat ters kaydı), İade Edildi
+     * - Başarısız → Ödendi (yönetici ya da geç gelen ödeme), Bekliyor (yönetici; sipariş başarısız değilse)
+     * - İade Edildi → Ödendi (yönetici yeniden ödendi işaretler)
+     *
+     * @return list<self>
+     */
+    public function allowedTargets(): array
+    {
+        return match ($this) {
+            self::Pending => [self::Partial, self::Paid, self::Failed],
+            self::Partial => [self::Paid, self::Pending, self::Failed, self::Refunded],
+            self::Paid => [self::Pending, self::Partial, self::Refunded],
+            self::Failed => [self::Paid, self::Pending],
+            self::Refunded => [self::Paid],
+            self::Cancelled => [],
+        };
+    }
+
+    public function canTransitionTo(self $target): bool
+    {
+        return in_array($target, $this->allowedTargets(), true);
+    }
+
+    /**
+     * Haritada olmayan geçiş bir kod hatasıdır (yolun kendi kuralı bunu önlemeliydi).
+     */
+    public function assertTransition(self $target): void
+    {
+        if ($this !== $target && ! $this->canTransitionTo($target)) {
+            throw new \LogicException(sprintf('Geçersiz ödeme durumu geçişi: %s → %s', $this->value, $target->value));
+        }
+    }
+
+    /**
      * Yöneticinin sipariş ekranından seçebileceği ödeme durumları ("Kısmen Ödendi"
      * cari dağıtımdan, "İptal Edildi" yalnız tahsilat kayıtlarında kullanılır).
      *

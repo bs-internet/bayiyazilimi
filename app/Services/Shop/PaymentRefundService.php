@@ -219,7 +219,7 @@ class PaymentRefundService
             // Sipariş ancak ödenmiş başka ödemesi kalmadıysa "İade Edildi" olur.
             $otherPaid = $order->payments()->whereKeyNot($payment->id)->where('status', PaymentStatus::Paid)->exists();
 
-            if ($full && ! $otherPaid && in_array($order->payment_status, [PaymentStatus::Paid, PaymentStatus::Partial], true)) {
+            if ($full && ! $otherPaid && $order->payment_status->canTransitionTo(PaymentStatus::Refunded)) {
                 $order->forceFill(['payment_status' => PaymentStatus::Refunded])->save();
             }
 

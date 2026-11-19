@@ -532,7 +532,7 @@ class LedgerService
                 ? in_array($order->payment_status, [PaymentStatus::Pending, PaymentStatus::Partial, PaymentStatus::Paid], true)
                 : in_array($order->payment_status, [PaymentStatus::Pending, PaymentStatus::Partial], true);
 
-            if (! $applies || $order->payment_status === $target) {
+            if (! $applies || $order->payment_status === $target || ! $order->payment_status->canTransitionTo($target)) {
                 return;
             }
 
