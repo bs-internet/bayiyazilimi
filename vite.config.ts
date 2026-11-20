@@ -18,6 +18,23 @@ export default defineConfig({
             ),
         },
     },
+    build: {
+        rolldownOptions: {
+            output: {
+                // React tek bir parçada: paketleyici React'i zaman zaman birden çok
+                // parçaya kopyalıyordu; iki kopya "Cannot read properties of null
+                // (reading 'use')" ile sayfayı beyaz bırakır.
+                codeSplitting: {
+                    groups: [
+                        {
+                            name: 'react',
+                            test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+                        },
+                    ],
+                },
+            },
+        },
+    },
     server: {
         fs: {
             // Modüller kardeş klasörlerde geliştirilir ve vendor/bsinternet/* içine
