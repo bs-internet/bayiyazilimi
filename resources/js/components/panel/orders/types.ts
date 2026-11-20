@@ -26,6 +26,7 @@ export type OrderDetail = OrderListItem & {
     invoiced_at: string | null;
     stock_deducted: boolean;
     ip_address: string | null;
+    marketing_consent_at: string | null;
     subtotal_formatted: string;
     gross_subtotal_formatted: string | null;
     tax_total_formatted: string;

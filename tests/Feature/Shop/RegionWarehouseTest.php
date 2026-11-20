@@ -70,7 +70,7 @@ test('a dealer order is taken from the region warehouse first and the rest from 
     $this->post(route('app.shop.checkout.store'), [
         'email' => 'user@user.com', 'phone' => '05551112233',
         'billing' => ['type' => 'individual', 'name' => 'Ali Veli', 'address' => 'Adres 1', 'city' => 'Bursa', 'district' => 'Nilüfer'],
-        'same_address' => '1', 'payment_method' => 'bank_transfer', 'agreement' => '1',
+        'same_address' => '1', 'payment_method' => 'bank_transfer', 'agreements' => ['satis-sozlesmesi' => '1', 'kvkk-aydinlatma-metni' => '1'],
     ])->assertRedirect();
 
     $order = Order::query()->latest()->firstOrFail();

@@ -555,20 +555,35 @@ export function CheckoutForm({
                                 </kit.Note>
                             ) : null}
                             <div className="mt-5 flex flex-col gap-3">
-                                {contracts.length > 0 ? (
+                                {/* Her sözleşmenin ayrı onay kutusu vardır. */}
+                                {contracts.map((contract) => (
                                     <kit.CheckField
-                                        name="agreement"
+                                        key={contract.slug}
+                                        name={`agreements[${contract.slug}]`}
                                         value="1"
                                         required
-                                        error={errors.agreement}
+                                        error={
+                                            errors[
+                                                `agreements.${contract.slug}`
+                                            ]
+                                        }
                                         label={
                                             <ContractAgreementLabel
-                                                contracts={contracts}
+                                                contracts={[contract]}
                                                 linkClass={kit.linkClass}
                                             />
                                         }
                                     />
-                                ) : null}
+                                ))}
+                                {/* Ticari elektronik ileti onayı: isteğe bağlı, işaretsiz gelir. */}
+                                <kit.CheckField
+                                    name="marketing_consent"
+                                    value="1"
+                                    error={errors.marketing_consent}
+                                    label={t(
+                                        'Kampanya ve yenilikler hakkında e-posta ve telefonla ticari ileti almak istiyorum.',
+                                    )}
+                                />
                                 <kit.SubmitButton
                                     processing={processing}
                                     className="w-full"

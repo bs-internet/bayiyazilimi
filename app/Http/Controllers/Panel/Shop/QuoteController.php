@@ -196,6 +196,8 @@ class QuoteController extends Controller
                     'phone' => $quote->phone,
                     'city' => $quote->city,
                     'member' => $quote->user_id !== null,
+                    'marketing_consent_at' => $quote->marketing_consent_at?->toIso8601String(),
+                    'ip_address' => $quote->ip_address,
                 ],
                 'customer_note' => $quote->customer_note,
                 'admin_note' => $quote->admin_note,

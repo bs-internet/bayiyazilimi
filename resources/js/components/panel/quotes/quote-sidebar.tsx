@@ -1,5 +1,6 @@
 import { EntitySidebar, InfoList, SectionCard } from '@/components/admin/page';
 
+import { formatDateTime } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { CancelDialog } from './cancel-dialog';
 import { HistoryCard } from './history-card';
@@ -42,6 +43,30 @@ export function QuoteSidebar({ quote }: { quote: QuoteData | null }) {
                                               'Misafir (e-postadaki bağlantıyla yanıtlar)',
                                           ),
                                 },
+                                // Ticari ileti onayı yalnız misafir talep formunda sorulur.
+                                ...(quote.customer.member
+                                    ? []
+                                    : [
+                                          {
+                                              label: t('Ticari ileti onayı'),
+                                              value: quote.customer
+                                                  .marketing_consent_at
+                                                  ? t(
+                                                        'Verildi (:date, IP: :ip)',
+                                                        {
+                                                            date: formatDateTime(
+                                                                quote.customer
+                                                                    .marketing_consent_at,
+                                                            ),
+                                                            ip:
+                                                                quote.customer
+                                                                    .ip_address ??
+                                                                '-',
+                                                        },
+                                                    )
+                                                  : t('Verilmedi'),
+                                          },
+                                      ]),
                             ]}
                         />
                     </SectionCard>

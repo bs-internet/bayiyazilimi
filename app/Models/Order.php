@@ -72,6 +72,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'shipped_at',
     'cancelled_at',
     'ip_address',
+    'marketing_consent_at',
     'invoice_number',
     'invoiced_at',
 ])]
@@ -107,6 +108,7 @@ class Order extends Model
             'shipped_at' => 'immutable_datetime',
             'cancelled_at' => 'immutable_datetime',
             'invoiced_at' => 'immutable_datetime',
+            'marketing_consent_at' => 'immutable_datetime',
         ];
     }
 

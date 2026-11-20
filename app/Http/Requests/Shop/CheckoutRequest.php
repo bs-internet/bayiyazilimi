@@ -10,6 +10,9 @@ use Illuminate\Validation\Rule;
 
 class CheckoutRequest extends FormRequest
 {
+    /** @var array<string, string>|null */
+    private ?array $checkoutContracts = null;
+
     public function authorize(): bool
     {
         return true;
@@ -73,8 +76,11 @@ class CheckoutRequest extends FormRequest
             'payment_method' => ['required', 'string', 'max:24'],
             'carrier_id' => ['nullable', 'uuid', Rule::exists('carriers', 'id')->where('status', 'active')],
             'customer_note' => ['nullable', 'string', 'max:2000'],
-            // Ödeme formunda onaylatılan sözleşme yoksa onay kutusu da yoktur.
-            'agreement' => Contract::query()->active()->where('show_on_checkout', true)->exists() ? ['accepted'] : ['nullable'],
+            // Ödeme formunda onaylatılan her sözleşmenin kendi onay kutusu vardır.
+            'agreements' => ['nullable', 'array'],
+            ...collect($this->checkoutContracts())->mapWithKeys(fn (string $title, string $slug) => ["agreements.{$slug}" => ['accepted']])->all(),
+            // Ticari elektronik ileti onayı (6563 s. Kanun): isteğe bağlı, ayrı kutu.
+            'marketing_consent' => ['nullable', 'boolean'],
             'save_address' => ['nullable', 'boolean'],
             'billing_same_as_shipping' => ['boolean'],
             // Tek kullanımlık ödeme anahtarı ve ekranda görülen tutar (CheckoutGuard).
@@ -97,7 +103,7 @@ class CheckoutRequest extends FormRequest
             $data['shipping']['phone'] = ($data['shipping']['phone'] ?? null) ?: $data['phone'];
         }
 
-        unset($data['agreement'], $data['save_address'], $data['billing_same_as_shipping']);
+        unset($data['agreements'], $data['save_address'], $data['billing_same_as_shipping']);
 
         return $data;
     }
@@ -124,7 +130,20 @@ class CheckoutRequest extends FormRequest
             'shipping.district' => __('teslimat ilçesi'),
             'payment_method' => __('ödeme yöntemi'),
             'carrier_id' => __('kargo firması'),
-            'agreement' => __('sözleşme onayı'),
+            'marketing_consent' => __('ticari ileti onayı'),
+            ...collect($this->checkoutContracts())->mapWithKeys(fn (string $title, string $slug) => ["agreements.{$slug}" => $title])->all(),
         ];
+    }
+
+    /**
+     * Ödeme formunda onaylatılan aktif sözleşmeler: slug => başlık.
+     *
+     * @return array<string, string>
+     */
+    private function checkoutContracts(): array
+    {
+        return $this->checkoutContracts ??= Contract::query()->active()
+            ->where('show_on_checkout', true)
+            ->pluck('title', 'slug')->all();
     }
 }

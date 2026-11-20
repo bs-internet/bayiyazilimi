@@ -46,7 +46,9 @@ export function ContractAgreementLabel({
                     </button>
                 </Fragment>
             ))}{' '}
-            {t('metinlerini okudum, onaylıyorum.')}
+            {contracts.length === 1
+                ? t('metnini okudum, onaylıyorum.')
+                : t('metinlerini okudum, onaylıyorum.')}
             <Dialog
                 open={open !== null}
                 onOpenChange={(o) => (o ? null : setOpen(null))}

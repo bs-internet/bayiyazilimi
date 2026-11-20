@@ -58,6 +58,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'customer_responded_at',
     'order_id',
     'ip_address',
+    'marketing_consent_at',
 ])]
 class Quote extends Model
 {
@@ -81,6 +82,7 @@ class Quote extends Model
             'sent_at' => 'immutable_datetime',
             'responded_at' => 'immutable_datetime',
             'customer_responded_at' => 'immutable_datetime',
+            'marketing_consent_at' => 'immutable_datetime',
         ];
     }
 

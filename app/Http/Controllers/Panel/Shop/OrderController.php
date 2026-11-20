@@ -148,6 +148,7 @@ class OrderController extends Controller
                 'invoiced_at' => $order->invoiced_at,
                 'stock_deducted' => $order->stock_deducted,
                 'ip_address' => $order->ip_address,
+                'marketing_consent_at' => $order->marketing_consent_at?->toIso8601String(),
                 'subtotal_formatted' => $fmt($order->subtotal),
                 'tax_total_formatted' => $fmt($order->tax_total),
                 'shipping_total_formatted' => Money::decimal($order->shipping_total)->isPositive() ? $fmt($order->shipping_total) : __('Ücretsiz'),

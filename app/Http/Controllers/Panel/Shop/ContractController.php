@@ -11,6 +11,7 @@ use App\Http\Middleware\SiteAccessGate;
 use App\Http\Requests\Panel\Shop\SaveContractRequest;
 use App\Models\Contract;
 use App\Services\Panel\Shop\CatalogService;
+use App\Support\ContentPlaceholders;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -37,12 +38,13 @@ class ContractController extends Controller
                 'updated_at' => $c->updated_at?->toIso8601String(),
             ])->values()->all(),
             'registration' => self::registrationOpen(),
+            'placeholders' => ContentPlaceholders::catalog(),
         ]);
     }
 
     public function create(): Response
     {
-        return Inertia::render('panel/tools/definitions/contracts/edit', ['contract' => null, 'registration' => self::registrationOpen()]);
+        return Inertia::render('panel/tools/definitions/contracts/edit', ['contract' => null, 'registration' => self::registrationOpen(), 'placeholders' => ContentPlaceholders::catalog()]);
     }
 
     public function store(SaveContractRequest $request, CatalogService $catalog): RedirectResponse
@@ -68,6 +70,7 @@ class ContractController extends Controller
                 'updated_at' => $contract->updated_at?->toIso8601String(),
             ],
             'registration' => self::registrationOpen(),
+            'placeholders' => ContentPlaceholders::catalog(),
         ]);
     }
 

@@ -40,6 +40,8 @@ class QuoteRequest extends FormRequest
             'customer_note' => ['nullable', 'string', 'max:2000'],
             // Üyeler sözleşmeleri kayıtta kabul etti.
             'kvkk' => $guest ? ['accepted'] : ['nullable'],
+            // Ticari elektronik ileti onayı (6563 s. Kanun): isteğe bağlı, ayrı kutu.
+            'marketing_consent' => ['nullable', 'boolean'],
         ];
     }
 
@@ -56,6 +58,7 @@ class QuoteRequest extends FormRequest
             'city' => __('şehir'),
             'customer_note' => __('not'),
             'kvkk' => __('KVKK onayı'),
+            'marketing_consent' => __('ticari ileti onayı'),
         ];
     }
 }

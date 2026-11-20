@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Concerns\HasSortOrder;
 use App\Concerns\HasStatus;
 use App\Enums\Status;
+use App\Support\ContentPlaceholders;
 use App\Support\HtmlSanitizer;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -48,7 +49,7 @@ class Contract extends Model
             ->map(fn (self $c) => [
                 'title' => $c->title,
                 'slug' => $c->slug,
-                'content' => HtmlSanitizer::clean($c->content),
+                'content' => ContentPlaceholders::fill(HtmlSanitizer::clean($c->content)),
             ])->values()->all();
     }
 

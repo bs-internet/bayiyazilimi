@@ -213,6 +213,12 @@ export type ContractInfo = {
     content: string;
 };
 
+/** Sözleşme / sayfa metnindeki yer tutucu (ContentPlaceholders::catalog). */
+export type ContentPlaceholder = {
+    token: string;
+    label: string;
+};
+
 /** Üye hesabının müşteri / bayi bilgisi (panel → Müşteriler). */
 export type CustomerType = 'customer' | 'dealer';
 

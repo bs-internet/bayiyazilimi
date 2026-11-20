@@ -111,7 +111,7 @@ class ShopSeeder extends Seeder
 
         foreach ([
             // slug, başlık, ödeme formu, üyelik formu, sıra
-            ['satis-sozlesmesi', 'Satış Sözleşmesi', true, false, 1],
+            ['satis-sozlesmesi', 'Mesafeli Satış Sözleşmesi', true, false, 1],
             ['uyelik-sozlesmesi', 'Üyelik Sözleşmesi', false, true, 2],
             ['kvkk-aydinlatma-metni', 'KVKK Aydınlatma Metni', true, true, 3],
             ['garanti-ve-iade-sartlari', 'Garanti ve İade Şartları', false, false, 4],

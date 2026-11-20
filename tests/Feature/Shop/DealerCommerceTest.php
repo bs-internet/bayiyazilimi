@@ -7,6 +7,7 @@ use App\Enums\Shop\StockMovementType;
 use App\Enums\Status;
 use App\Models\Account;
 use App\Models\BankAccount;
+use App\Models\Contract;
 use App\Models\Currency;
 use App\Models\CustomerAddress;
 use App\Models\Order;
@@ -56,7 +57,7 @@ function dealerCheckoutPayload(array $extra = []): array
         'same_address' => '0', 'billing_same_as_shipping' => '1',
         'shipping' => ['name' => 'Depo Sorumlusu', 'address' => 'Depo adresi 1', 'city' => 'Bursa', 'district' => 'Nilüfer'],
         'billing' => ['type' => 'corporate', 'name' => 'Ali Veli', 'company' => 'ACME', 'tax_office' => 'Nilüfer', 'tax_number' => '1234567890'],
-        'payment_method' => 'bank_transfer', 'agreement' => '1', 'save_address' => '1',
+        'payment_method' => 'bank_transfer', 'agreements' => ['satis-sozlesmesi' => '1', 'kvkk-aydinlatma-metni' => '1'], 'save_address' => '1',
     ], $extra);
 }
 
@@ -210,4 +211,27 @@ it('shows the dealer shopping menu items', function () {
                     && $keys->contains('app.shop.quotes')
                     && $keys->contains('app.shop.saved-carts.index');
             }));
+});
+
+it('asks each checkout contract separately and records the optional commercial message consent on the order', function () {
+    Contract::query()->whereIn('slug', ['satis-sozlesmesi', 'kvkk-aydinlatma-metni'])
+        ->update(['status' => Status::Active, 'show_on_checkout' => true]);
+
+    $this->actingAs($this->dealer)->post(route('app.shop.cart.add'), ['product_id' => $this->product->id, 'quantity' => 1]);
+
+    // Tek sözleşme onaylanırsa diğeri için ayrı hata döner.
+    $this->actingAs($this->dealer)->post(route('app.shop.checkout.store'), dealerCheckoutPayload(['agreements' => ['satis-sozlesmesi' => '1']]))
+        ->assertSessionHasErrors(['agreements.kvkk-aydinlatma-metni'])
+        ->assertSessionDoesntHaveErrors(['agreements.satis-sozlesmesi']);
+
+    $this->actingAs($this->dealer)->post(route('app.shop.checkout.store'), dealerCheckoutPayload(['marketing_consent' => '1']))
+        ->assertSessionHasNoErrors();
+
+    $order = Order::query()->latest()->firstOrFail();
+    expect($order->marketing_consent_at)->not->toBeNull();
+
+    $this->actingAs($this->dealer)->post(route('app.shop.cart.add'), ['product_id' => $this->product->id, 'quantity' => 1]);
+    $this->actingAs($this->dealer)->post(route('app.shop.checkout.store'), dealerCheckoutPayload())->assertSessionHasNoErrors();
+
+    expect(Order::query()->whereNull('marketing_consent_at')->count())->toBe(1);
 });

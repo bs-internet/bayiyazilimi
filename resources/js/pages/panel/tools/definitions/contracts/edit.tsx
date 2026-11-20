@@ -11,6 +11,7 @@ import {
     SectionCard,
 } from '@/components/admin/page';
 import { DeleteButton, FormActions } from '@/components/confirm-delete';
+import { ContentPlaceholders } from '@/components/content-placeholders';
 import { CheckField } from '@/components/shop/check-field';
 import { RichTextField, TextField } from '@/components/shop/form-fields';
 import { Button } from '@/components/ui/button';
@@ -18,19 +19,24 @@ import { FieldGroup } from '@/components/ui/field';
 import { formatDateTime } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { destroy, index, store, update } from '@/routes/panel/shop/contracts';
-import type { Contract } from '@/types';
+import type { ContentPlaceholder, Contract } from '@/types';
 
 type Props = {
     contract: Contract | null;
     /** Üyelik formu var mı (site herkese açık, vitrin)? Yoksa kutu gösterilmez. */
     registration: boolean;
+    placeholders: ContentPlaceholder[];
 };
 
 /**
  * Sözleşme ekleme / düzenleme. Durum burada değil, listedeki anahtardan
  * değişir; yeni sözleşme pasif başlar.
  */
-export default function ContractEdit({ contract, registration }: Props) {
+export default function ContractEdit({
+    contract,
+    registration,
+    placeholders,
+}: Props) {
     const title = contract ? contract.title : t('Yeni sözleşme');
     const formProps = contract ? update.form(contract.id) : store.form();
 
@@ -180,6 +186,9 @@ export default function ContractEdit({ contract, registration }: Props) {
                                         />
                                     </FieldGroup>
                                 </SectionCard>
+                                <ContentPlaceholders
+                                    placeholders={placeholders}
+                                />
                             </EntitySidebar>
                         </EntityLayout>
                     </Page>

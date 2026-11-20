@@ -30,6 +30,8 @@ export type QuoteData = {
         phone: string | null;
         city: string | null;
         member: boolean;
+        marketing_consent_at: string | null;
+        ip_address: string | null;
     };
     customer_note: string | null;
     admin_note: string | null;

@@ -203,7 +203,7 @@ it('offers saved addresses at checkout and saves a new checkout address', functi
     $this->actingAs($this->member)->post(route('app.shop.checkout.store'), [
         'email' => 'user@user.com', 'phone' => '05551112233',
         'billing' => ['type' => 'individual', 'name' => 'Ali Veli', 'address' => 'Yeni adres 5', 'city' => 'Bursa', 'district' => 'Nilüfer'],
-        'same_address' => '1', 'payment_method' => 'bank_transfer', 'agreement' => '1', 'save_address' => '1',
+        'same_address' => '1', 'payment_method' => 'bank_transfer', 'agreements' => ['satis-sozlesmesi' => '1', 'kvkk-aydinlatma-metni' => '1'], 'save_address' => '1',
     ])->assertRedirect();
 
     // Aynı adres olsa da teslimat ve fatura için iki ayrı kayıt açılır.

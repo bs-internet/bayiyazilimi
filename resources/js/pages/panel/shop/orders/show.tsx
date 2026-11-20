@@ -203,6 +203,15 @@ export default function OrderShow({
                                 })}
                             </p>
                         )}
+                        {order.marketing_consent_at && (
+                            <p className="px-1 text-xs text-muted-foreground">
+                                {t('Ticari ileti onayı: :date', {
+                                    date: formatDateTime(
+                                        order.marketing_consent_at,
+                                    ),
+                                })}
+                            </p>
+                        )}
                     </EntitySidebar>
                 </EntityLayout>
             </Page>

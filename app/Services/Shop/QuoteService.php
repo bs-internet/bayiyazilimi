@@ -63,6 +63,7 @@ class QuoteService
                 'currency_code' => $currency->code,
                 'exchange_rate' => $currency->exchange_rate,
                 'ip_address' => $ip,
+                'marketing_consent_at' => filter_var($data['marketing_consent'] ?? false, FILTER_VALIDATE_BOOLEAN) ? now() : null,
             ]);
 
             foreach ($lines->values() as $i => $line) {

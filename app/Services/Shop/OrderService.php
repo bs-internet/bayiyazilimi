@@ -947,6 +947,8 @@ class OrderService
             'base_exchange_rate' => Money::baseRate(),
             'customer_note' => $data['customer_note'] ?? null,
             'ip_address' => $ip,
+            // Ödeme formundaki isteğe bağlı ticari elektronik ileti onayı.
+            'marketing_consent_at' => filter_var($data['marketing_consent'] ?? false, FILTER_VALIDATE_BOOLEAN) ? now() : null,
         ]);
 
         $order->save();

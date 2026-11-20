@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Notifications\Shop\OrderStatusNotification;
 use App\Notifications\Shop\QuoteStatusNotification;
+use App\Services\Shop\Basket;
 use App\Services\Shop\OrderService;
 use App\Services\Shop\QuoteService;
 use App\Services\Shop\ShopSettings;
@@ -64,7 +65,7 @@ function quoteCheckoutPayload(): array
         'email' => 'user@user.com', 'phone' => '05551112233',
         'same_address' => '1', 'billing_same_as_shipping' => '1',
         'billing' => ['type' => 'corporate', 'name' => 'Ali Veli', 'company' => 'ACME', 'tax_office' => 'Nilüfer', 'tax_number' => '1234567890', 'address' => 'Depo adresi 1', 'city' => 'Bursa', 'district' => 'Nilüfer'],
-        'payment_method' => 'bank_transfer', 'agreement' => '1',
+        'payment_method' => 'bank_transfer', 'agreements' => ['satis-sozlesmesi' => '1', 'kvkk-aydinlatma-metni' => '1'],
     ];
 }
 
@@ -172,4 +173,26 @@ it('mails the customer on every order status change, adding the note only when a
 
     app(OrderService::class)->changeStatus($order->fresh(), OrderStatus::Shipped, ['note' => 'Yarın teslim', 'notify' => true], $this->admin);
     Notification::assertSentOnDemand(OrderStatusNotification::class, fn ($n) => $n->note === 'Yarın teslim');
+});
+
+it('records the optional commercial message consent of a guest quote request and shows it in the panel', function () {
+    $try = Currency::query()->where('code', 'TRY')->firstOrFail();
+    $guest = ['customer_name' => 'Ayşe Yılmaz', 'email' => 'ayse@example.com', 'phone' => '05550000000'];
+
+    Basket::quote()->add($this->product, 1);
+    $without = app(QuoteService::class)->request(Basket::quote(), $guest, null, $try, '10.0.0.1');
+
+    Basket::quote()->add($this->product, 1);
+    $with = app(QuoteService::class)->request(Basket::quote(), [...$guest, 'marketing_consent' => '1'], null, $try, '10.0.0.2');
+
+    expect($without->marketing_consent_at)->toBeNull()
+        ->and($with->marketing_consent_at)->not->toBeNull();
+
+    $this->actingAs($this->admin)->get(route('panel.shop.quotes.edit', $with->id))
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('quote.customer.marketing_consent_at', $with->marketing_consent_at->toIso8601String())
+            ->where('quote.customer.ip_address', '10.0.0.2'));
+
+    $this->actingAs($this->admin)->get(route('panel.shop.quotes.edit', $without->id))
+        ->assertInertia(fn (Assert $p) => $p->where('quote.customer.marketing_consent_at', null));
 });

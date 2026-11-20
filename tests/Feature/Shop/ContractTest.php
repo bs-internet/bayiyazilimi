@@ -5,8 +5,11 @@ declare(strict_types=1);
 use App\Actions\Fortify\CreateNewUser;
 use App\Enums\Status;
 use App\Http\Requests\Shop\CheckoutRequest;
+use App\Models\BankAccount;
 use App\Models\Contract;
 use App\Models\User;
+use App\Services\Shop\ShopSettings;
+use App\Support\ContentPlaceholders;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -80,12 +83,56 @@ it('offers only active contracts for the matching form, with sanitized content',
         ->and(Contract::forForm(Contract::CHECKOUT)[0]['content'])->toBe('<p>Metin</p>');
 });
 
-it('requires the checkout agreement only when a checkout contract is active', function () {
-    expect((new CheckoutRequest)->rules()['agreement'])->toBe(['nullable']);
+it('requires a separate agreement for each active checkout contract', function () {
+    expect(collect((new CheckoutRequest)->rules())->keys()->filter(fn ($k) => str_starts_with($k, 'agreements.')))->toBeEmpty();
 
     makeContract(['show_on_checkout' => true]);
+    makeContract(['title' => 'KVKK', 'slug' => 'kvkk', 'show_on_checkout' => true, 'sort_order' => 2]);
+    makeContract(['title' => 'Taslak', 'slug' => 'taslak', 'show_on_checkout' => true, 'status' => Status::Passive]);
 
-    expect((new CheckoutRequest)->rules()['agreement'])->toBe(['accepted']);
+    $request = new CheckoutRequest;
+    expect($request->rules())
+        ->toHaveKey('agreements.satis', ['accepted'])
+        ->toHaveKey('agreements.kvkk', ['accepted'])
+        ->not->toHaveKey('agreements.taslak')
+        ->and($request->rules()['marketing_consent'])->toBe(['nullable', 'boolean'])
+        ->and($request->attributes()['agreements.kvkk'])->toBe('KVKK');
+});
+
+it('fills placeholders from corporate info and bank accounts when a contract is shown', function () {
+    ShopSettings::save(['store_name' => 'Örnek <Ticaret> A.Ş.', 'tax_office' => 'Kadıköy', 'tax_number' => '1234567890', 'mersis_number' => '0123456789000015']);
+    BankAccount::query()->create(['bank_name' => 'Test Bankası', 'branch' => 'Merkez', 'account_holder' => 'Örnek A.Ş.', 'iban' => 'TR120006400000112345678901', 'status' => 'active']);
+    BankAccount::query()->create(['bank_name' => 'Kapalı Banka', 'account_holder' => 'Örnek A.Ş.', 'iban' => 'TR000000000000000000000000', 'status' => 'passive']);
+
+    makeContract([
+        'show_on_checkout' => true,
+        'content' => '<p>Satıcı: {unvan}, {vergi_dairesi} V.D. {vergi_no}, MERSİS {mersis_no} {bilinmeyen}</p><p>{banka_hesaplari}</p>',
+    ]);
+
+    $content = Contract::forForm(Contract::CHECKOUT)[0]['content'];
+
+    expect($content)
+        ->toContain('Satıcı: Örnek &lt;Ticaret&gt; A.Ş., Kadıköy V.D. 1234567890, MERSİS 0123456789000015 {bilinmeyen}')
+        ->toContain('<table>')->not->toContain('<p><table>')
+        ->toContain('TR12 0006 4000 0011 2345 6789 01')->toContain('Merkez')
+        ->not->toContain('Kapalı Banka');
+
+    // Bayi panelindeki Sözleşmeler de doldurulmuş metni gösterir.
+    $this->actingAs($this->member)->get(route('app.shop.contracts.show', 'satis'))
+        ->assertInertia(fn (Assert $page) => $page->where('contract.content', fn (string $html) => str_contains($html, 'Kadıköy V.D. 1234567890')));
+});
+
+it('gives the contract editor the raw text and the placeholder list', function () {
+    $contract = makeContract(['content' => '<p>{unvan}</p>']);
+
+    $this->actingAs($this->admin)->get(route('panel.shop.contracts.edit', $contract))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('contract.content', fn (string $html) => str_contains($html, '{unvan}'))
+            ->where('placeholders', fn ($items) => collect($items)->pluck('token')->contains('{banka_hesaplari}')));
+});
+
+it('leaves the bank account placeholder empty when no account is active', function () {
+    expect(ContentPlaceholders::fill('<p>Hesaplar:</p><p>{banka_hesaplari}</p>'))->toBe('<p>Hesaplar:</p>');
 });
 
 it('requires the registration agreement only when a registration contract is active', function () {
