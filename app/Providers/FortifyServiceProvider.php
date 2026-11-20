@@ -108,8 +108,6 @@ class FortifyServiceProvider extends ServiceProvider
             'canRegister' => Features::enabled(Features::registration()) && SiteAccessGate::isPublic(),
             'status' => $request->session()->get('status'),
             ...$shop(),
-            // Eklentilerin giriş sayfası verisi (ör. demo hesapları; ön yüzde `auth.login` yuvası).
-            ...hooks()->apply('auth.login.props', []),
         ]));
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [

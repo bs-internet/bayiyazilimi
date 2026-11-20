@@ -14,13 +14,6 @@ test('login screen can be rendered', function () {
     $response->assertOk();
 });
 
-test('extensions can add data to the login screen', function () {
-    hooks()->filter('auth.login.props', fn (array $value) => [...$value, 'notice' => 'Demo']);
-
-    $this->get(route('login'))
-        ->assertInertia(fn ($page) => $page->component('auth/login')->where('notice', 'Demo'));
-});
-
 test('users can authenticate using the login screen', function () {
     $user = User::factory()->create();
 
