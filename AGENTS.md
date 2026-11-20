@@ -433,7 +433,8 @@ alanlar yalnız `Storefront::enabled()` iken görünür ve kapalıyken değerler
 - **Zamanlanmış görevler** ([routes/console.php](routes/console.php)): `shop:sync-rates` (hafta içi
   09:05 ve 15:45), `shop:expire-pending-payments` (5 dk), `shop:release-stock-reservations` (saatlik),
   `shop:refresh-expired-stock` (00:10), `shop:send-due-reminders` (09:00), `bayi:backup` (03:30; mysqldump, en yeni `BAYIYAZILIMI_BACKUP_KEEP`
-  yedek, [BackupService](app/Services/System/BackupService.php)) ve `BAYIYAZILIMI_QUEUE_VIA_SCHEDULER`
+  yedek, [BackupService](app/Services/System/BackupService.php); `BAYIYAZILIMI_BACKUP_MAIL_TO` + `_PASSWORD` varsa
+  AES-256 şifreli zip olarak e-postalanır, şifresiz hiç gönderilmez) ve `BAYIYAZILIMI_QUEUE_VIA_SCHEDULER`
   açıkken her dakika `queue:work --stop-when-empty` (paylaşımlı hostingde cron yeter).
 - **Hata bildirimi:** raporlanan her hata günlüğe yazılır; canlıda ayrıca [ErrorAlerts](app/Support/System/ErrorAlerts.php)
   → `ErrorReportedEvent` → `BAYIYAZILIMI_ERROR_ALERTS_TO` adreslerine ya da aktif Super Admin'lere e-posta +

@@ -6,6 +6,7 @@ namespace App\Services\System;
 
 use Illuminate\Support\Facades\Process;
 use Throwable;
+use ZipArchive;
 
 /**
  * Veritabanı yedeği: mysqldump ile `storage/app/private/backups/` altına SQL
@@ -32,7 +33,7 @@ final class BackupService
 
         $dir = storage_path(self::DIRECTORY);
         $relative = 'storage/'.self::DIRECTORY.'/'.now()->format('Y-m-d-His').'.sql';
-        $path = base_path($relative);
+        $path = $dir.DIRECTORY_SEPARATOR.basename($relative);
 
         try {
             if (! is_dir($dir)) {
@@ -62,6 +63,37 @@ final class BackupService
         }
 
         return $relative;
+    }
+
+    /**
+     * Yedeği (tam yol) AES-256 şifreli zip'e koyar (e-posta eki için); zip'in tam yolunu
+     * döndürür. Zip eklentisi yoksa ya da yazılamazsa null. Çağıran siler.
+     */
+    public function archive(string $source, string $password): ?string
+    {
+        if (! class_exists(ZipArchive::class) || ! is_file($source)) {
+            return null;
+        }
+
+        $target = preg_replace('/\.sql$/', '', $source).'.zip';
+        $zip = new ZipArchive;
+
+        if ($zip->open($target, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            return null;
+        }
+
+        $name = basename($source);
+        $ok = $zip->setPassword($password)
+            && $zip->addFile($source, $name)
+            && $zip->setEncryptionName($name, ZipArchive::EM_AES_256);
+
+        if (! $zip->close() || ! $ok) {
+            @unlink($target);
+
+            return null;
+        }
+
+        return $target;
     }
 
     /**

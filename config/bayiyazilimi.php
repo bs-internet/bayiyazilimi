@@ -114,6 +114,9 @@ return [
     'backup' => [
         'keep' => (int) env('BAYIYAZILIMI_BACKUP_KEEP', 14),
         'at' => env('BAYIYAZILIMI_BACKUP_AT', '03:30'),
+        // Yedek bu adreslere (virgülle) AES-256 şifreli zip olarak e-postalanır; şifre zorunlu.
+        'mail_to' => env('BAYIYAZILIMI_BACKUP_MAIL_TO', ''),
+        'mail_password' => env('BAYIYAZILIMI_BACKUP_MAIL_PASSWORD', ''),
     ],
 
     /*

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use App\Events\System\ErrorReportedEvent;
 use App\Http\Middleware\BindCurrentAccount;
+use App\Mail\System\DatabaseBackupMail;
 use App\Models\User;
+use App\Notifications\System\DatabaseBackupNotification;
 use App\Notifications\System\ErrorReportedNotification;
 use App\Services\System\BackupService;
 use Illuminate\Notifications\AnonymousNotifiable;
@@ -150,4 +152,69 @@ test('the member account scope is bound before route models are resolved', funct
 
     expect(array_search(BindCurrentAccount::class, $middleware, true))
         ->toBeLessThan(array_search(SubstituteBindings::class, $middleware, true));
+});
+
+test('the daily backup is mailed as an encrypted zip when an address and password are set', function () {
+    $previous = useTemporaryStorage();
+    config(['bayiyazilimi.backup.mail_to' => 'yedek@example.com', 'bayiyazilimi.backup.mail_password' => 'gizli-sifre']);
+    Notification::fake();
+    Process::fake(function ($process) {
+        $file = collect($process->command)->first(fn (string $arg) => str_starts_with($arg, '--result-file='));
+        file_put_contents(substr((string) $file, strlen('--result-file=')), '-- dump');
+
+        return Process::result();
+    });
+
+    $this->artisan('bayi:backup')->assertSuccessful();
+
+    $zips = glob(storage_path(BackupService::DIRECTORY).DIRECTORY_SEPARATOR.'*.zip') ?: [];
+    restoreStorage($previous);
+
+    Notification::assertSentOnDemand(DatabaseBackupNotification::class, function (DatabaseBackupNotification $n, array $channels, AnonymousNotifiable $notifiable) {
+        return $notifiable->routes['mail'] === ['yedek@example.com'] && $n->attachment !== null && $n->size > 0;
+    });
+    expect($zips)->toBeEmpty(); // geçici zip gönderimden sonra silinir
+});
+
+test('the backup is never mailed without a password', function () {
+    $previous = useTemporaryStorage();
+    config(['bayiyazilimi.backup.mail_to' => 'yedek@example.com', 'bayiyazilimi.backup.mail_password' => '']);
+    Notification::fake();
+    Process::fake(function ($process) {
+        $file = collect($process->command)->first(fn (string $arg) => str_starts_with($arg, '--result-file='));
+        file_put_contents(substr((string) $file, strlen('--result-file=')), '-- dump');
+
+        return Process::result();
+    });
+
+    $this->artisan('bayi:backup')->assertSuccessful();
+    restoreStorage($previous);
+
+    Notification::assertNothingSent();
+});
+
+test('the backup archive is AES encrypted', function () {
+    $previous = useTemporaryStorage();
+    file_put_contents(storage_path(BackupService::DIRECTORY.'/2000-01-01-000000.sql'), '-- dump');
+    $relative = storage_path(BackupService::DIRECTORY.'/2000-01-01-000000.sql');
+
+    $zip = app(BackupService::class)->archive($relative, 'gizli-sifre');
+    $stat = null;
+    if ($zip !== null) {
+        $archive = new ZipArchive;
+        $archive->open($zip);
+        $stat = $archive->statName('2000-01-01-000000.sql');
+        $archive->close();
+        @unlink($zip);
+    }
+    restoreStorage($previous);
+
+    expect($zip)->not->toBeNull()
+        ->and($stat['encryption_method'] ?? null)->toBe(ZipArchive::EM_AES_256);
+});
+
+test('the backup mail explains how to open the encrypted attachment', function () {
+    $html = (new DatabaseBackupMail('2000-01-01-000000.sql', 2 * 1048576, __FILE__))->render();
+
+    expect($html)->toContain('2000-01-01-000000.sql')->toContain('2,0 MB')->toContain('7-Zip');
 });

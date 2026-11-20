@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Events\System\DatabaseBackedUpEvent;
 use App\Services\System\BackupService;
 use Illuminate\Console\Command;
 use RuntimeException;
@@ -36,6 +37,9 @@ final class BackupCommand extends Command
         $deleted = $backups->prune($keep);
 
         $this->info(__('Veritabanı yedeği alındı: :file', ['file' => $file]));
+
+        // Yedeğin e-postayla gönderimi (BAYIYAZILIMI_BACKUP_MAIL_TO): SendDatabaseBackupMail.
+        event(new DatabaseBackedUpEvent(storage_path(BackupService::DIRECTORY.DIRECTORY_SEPARATOR.basename($file))));
 
         if ($deleted > 0) {
             $this->line(__(':count eski yedek silindi.', ['count' => $deleted]));
