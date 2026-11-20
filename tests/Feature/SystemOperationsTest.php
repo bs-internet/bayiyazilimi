@@ -2,18 +2,23 @@
 
 declare(strict_types=1);
 
+use App\Enums\UserType;
 use App\Events\System\ErrorReportedEvent;
 use App\Http\Middleware\BindCurrentAccount;
 use App\Mail\System\DatabaseBackupMail;
+use App\Models\Permission;
+use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\System\DatabaseBackupNotification;
 use App\Notifications\System\ErrorReportedNotification;
+use App\Services\Shop\ShopSettings;
 use App\Services\System\BackupService;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Process;
+use Inertia\Testing\AssertableInertia as Assert;
 
 /*
  * Canlı ortam işletimi: hata bildirimi, günlük yedek, zamanlayıcı ve hesap
@@ -217,4 +222,53 @@ test('the backup mail explains how to open the encrypted attachment', function (
     $html = (new DatabaseBackupMail('2000-01-01-000000.sql', 2 * 1048576, __FILE__))->render();
 
     expect($html)->toContain('2000-01-01-000000.sql')->toContain('2,0 MB')->toContain('7-Zip');
+});
+
+test('the backup address and password set in the panel are used before the env values', function () {
+    $previous = useTemporaryStorage();
+    config(['bayiyazilimi.backup.mail_to' => '', 'bayiyazilimi.backup.mail_password' => '']);
+    ShopSettings::save(['backup_mail_to' => 'panel@example.com, ikinci@example.com', 'backup_mail_password' => 'panel-sifresi']);
+    Notification::fake();
+    Process::fake(function ($process) {
+        $file = collect($process->command)->first(fn (string $arg) => str_starts_with($arg, '--result-file='));
+        file_put_contents(substr((string) $file, strlen('--result-file=')), '-- dump');
+
+        return Process::result();
+    });
+
+    $this->artisan('bayi:backup')->assertSuccessful();
+    restoreStorage($previous);
+
+    Notification::assertSentOnDemand(DatabaseBackupNotification::class, fn ($n, array $channels, AnonymousNotifiable $notifiable) => $notifiable->routes['mail'] === ['panel@example.com', 'ikinci@example.com']);
+});
+
+test('only a super admin changes where the backup is mailed; the password is stored encrypted and kept when left blank', function () {
+    $this->withoutVite();
+    $super = User::factory()->superAdmin()->create();
+    $admin = User::factory()->withRole('Admin')->create(['user_type' => UserType::Admin]);
+    $admin->givePermissionTo(Permission::findOrCreate('panel.shop.backup.edit', 'web'), Permission::findOrCreate('panel.shop.backup.update', 'web'));
+
+    $this->actingAs($admin)->get(route('panel.shop.backup.edit'))
+        ->assertInertia(fn (Assert $page) => $page->component('panel/settings/general/backup')->where('canEdit', false));
+    $this->actingAs($admin)->put(route('panel.shop.backup.update'), ['backup_mail_to' => 'saldirgan@example.com'])->assertForbidden();
+    expect((string) ShopSettings::get('backup_mail_to'))->toBe('');
+
+    $this->actingAs($super)->put(route('panel.shop.backup.update'), ['backup_mail_to' => 'gecersiz-adres'])
+        ->assertSessionHasErrors('backup_mail_to');
+
+    $this->actingAs($super)->put(route('panel.shop.backup.update'), [
+        'backup_mail_to' => ' yedek@example.com ,diger@example.com ', 'backup_mail_password' => 'cok-gizli-sifre',
+    ])->assertSessionHasNoErrors();
+
+    expect(ShopSettings::get('backup_mail_to'))->toBe('yedek@example.com, diger@example.com')
+        ->and(ShopSettings::get('backup_mail_password'))->toBe('cok-gizli-sifre')
+        ->and(Setting::query()->where('key', 'backup_mail_password')->value('value'))->toStartWith('enc:v1:')
+        ->and(ShopSettings::all())->not->toHaveKey('backup_mail_password');
+
+    // Şifre boş gönderilirse korunur; ekrana yalnız "kayıtlı" bilgisi gelir.
+    $this->actingAs($super)->put(route('panel.shop.backup.update'), ['backup_mail_to' => 'yedek@example.com', 'backup_mail_password' => '']);
+    expect(ShopSettings::get('backup_mail_password'))->toBe('cok-gizli-sifre');
+
+    $this->actingAs($super)->get(route('panel.shop.backup.edit'))
+        ->assertInertia(fn (Assert $page) => $page->where('passwordSet', true)->where('active', true)->where('canEdit', true)->missing('password'));
 });

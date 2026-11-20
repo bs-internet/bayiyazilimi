@@ -6,15 +6,16 @@ namespace App\Listeners\System;
 
 use App\Events\System\DatabaseBackedUpEvent;
 use App\Notifications\System\DatabaseBackupNotification;
+use App\Services\Shop\ShopSettings;
 use App\Services\System\BackupService;
 use Illuminate\Support\Facades\Notification;
 use RuntimeException;
 use Throwable;
 
 /**
- * Alınan yedeği `bayiyazilimi.backup.mail_to` adreslerine şifreli (AES-256 zip)
- * ek olarak gönderir. Şifre (`BAYIYAZILIMI_BACKUP_MAIL_PASSWORD`) yoksa yedek
- * e-postayla hiç gönderilmez. Gönderim hatası yedeği bozmaz, yalnız raporlanır.
+ * Alınan yedeği Genel Ayarlar › Yedekleme'deki adreslere (yoksa .env
+ * BAYIYAZILIMI_BACKUP_MAIL_TO) şifreli (AES-256 zip) ek olarak gönderir. Şifre
+ * yoksa yedek e-postayla hiç gönderilmez. Gönderim hatası yedeği bozmaz, yalnız raporlanır.
  */
 class SendDatabaseBackupMail
 {
@@ -25,16 +26,16 @@ class SendDatabaseBackupMail
 
     public function handle(DatabaseBackedUpEvent $event): void
     {
-        $addresses = array_values(array_filter(array_map('trim', explode(',', (string) config('bayiyazilimi.backup.mail_to', '')))));
+        $addresses = self::addresses();
 
         if ($addresses === []) {
             return;
         }
 
-        $password = (string) config('bayiyazilimi.backup.mail_password', '');
+        $password = self::password();
 
         if ($password === '') {
-            report(new RuntimeException(__('Yedek e-postası gönderilmedi: BAYIYAZILIMI_BACKUP_MAIL_PASSWORD boş (yedek şifresiz gönderilmez).')));
+            report(new RuntimeException(__('Yedek e-postası gönderilmedi: zip şifresi boş (yedek şifresiz gönderilmez).')));
 
             return;
         }
@@ -58,5 +59,23 @@ class SendDatabaseBackupMail
         } finally {
             @unlink($archive);
         }
+    }
+
+    /**
+     * Yedeğin gideceği adresler: Genel Ayarlar › Yedekleme, boşsa BAYIYAZILIMI_BACKUP_MAIL_TO.
+     *
+     * @return list<string>
+     */
+    public static function addresses(): array
+    {
+        $value = trim((string) ShopSettings::get('backup_mail_to')) ?: (string) config('bayiyazilimi.backup.mail_to', '');
+
+        return array_values(array_filter(array_map('trim', explode(',', $value))));
+    }
+
+    /** Zip şifresi: Genel Ayarlar › Yedekleme, boşsa BAYIYAZILIMI_BACKUP_MAIL_PASSWORD. */
+    public static function password(): string
+    {
+        return (string) (ShopSettings::get('backup_mail_password') ?: config('bayiyazilimi.backup.mail_password', ''));
     }
 }

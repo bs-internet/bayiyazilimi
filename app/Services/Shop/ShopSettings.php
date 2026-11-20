@@ -39,6 +39,12 @@ class ShopSettings
     public const ACCESS_KEYS = ['maintenance_mode', 'maintenance_message'];
 
     /**
+     * Genel Ayarlar › Yedekleme ekranının yönettiği anahtarlar. Şifre gizli ayardır
+     * (şifreli saklanır, all()'a girmez); boşsa .env (BAYIYAZILIMI_BACKUP_MAIL_*) geçerlidir.
+     */
+    public const BACKUP_KEYS = ['backup_mail_to', 'backup_mail_password'];
+
+    /**
      * Tanımlamalar › Banka Hesapları ekranının yönettiği anahtarlar.
      */
     public const PAYMENT_KEYS = ['bank_transfer_enabled'];
@@ -142,6 +148,9 @@ class ShopSettings
         // açan vitrin modülüdür; modül yoksa site yalnız bayilere açıktır.
         'maintenance_mode' => '0',
         'maintenance_message' => 'Sitemizde bakım çalışması yapılmaktadır. Kısa süre içinde yeniden hizmetinizdeyiz.',
+        // Günlük yedeğin e-postayla gönderileceği adresler (virgülle) ve zip şifresi.
+        'backup_mail_to' => '',
+        'backup_mail_password' => '',
         'price_display' => 'gross',
         'dealer_price_display' => 'net',
     ];

@@ -250,6 +250,15 @@ final class ShopMenu
             'permission' => 'panel.shop.site-access.edit',
             'order' => 40,
         ]);
+        $menu->addChild('panel', 'settings', 'panel.settings.general', [
+            'key' => 'panel.shop.backup.edit',
+            'title' => __('Yedekleme'),
+            'href' => route('panel.shop.backup.edit'),
+            'icon' => 'databaseBackup',
+            'description' => __('Günlük veritabanı yedeğinin e-postayla gönderileceği adres.'),
+            'permission' => 'panel.shop.backup.edit',
+            'order' => 50,
+        ]);
     }
 
     public static function app(MenuRegistry $menu): void

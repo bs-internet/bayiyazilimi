@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Panel\Shop\AccountLedgerController;
+use App\Http\Controllers\Panel\Shop\BackupSettingsController;
 use App\Http\Controllers\Panel\Shop\BankAccountController;
 use App\Http\Controllers\Panel\Shop\BrandController;
 use App\Http\Controllers\Panel\Shop\CampaignController;
@@ -299,6 +300,11 @@ Route::prefix('shop')->name('shop.')->group(function () {
     });
 
     Route::controller(SiteAccessController::class)->prefix('site-access')->name('site-access.')->group(function () {
+        Route::get('/', 'edit')->name('edit');
+        Route::put('/', 'update')->name('update');
+    });
+
+    Route::controller(BackupSettingsController::class)->prefix('backup')->name('backup.')->group(function () {
         Route::get('/', 'edit')->name('edit');
         Route::put('/', 'update')->name('update');
     });
