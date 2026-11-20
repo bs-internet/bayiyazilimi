@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { Slot } from '@/lib/extensions';
 import { t } from '@/lib/i18n';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
@@ -37,6 +38,8 @@ export default function Login({
                     {statusMessages[status] ?? status}
                 </div>
             )}
+
+            <Slot name="auth.login" />
 
             <Form
                 {...store.form()}

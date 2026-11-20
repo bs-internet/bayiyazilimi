@@ -18,6 +18,8 @@ import type { ComponentType } from 'react';
  * - `top-bar.actions`       panel ve üye alanının üst çubuğu, sağdaki düğmeler
  * - `orders.show.sidebar`   panel sipariş ekranı, sağ sütun (Fatura kartının altı);
  *                           props: `order`, `extensions` (backend: `panel.orders.show.extensions` filtresi)
+ * - `auth.login`            giriş sayfası, formun üstü; sayfa verisi `auth.login.props`
+ *                           filtresiyle eklenir, bileşen `usePage().props` ile okur
  */
 
 type Entry = {

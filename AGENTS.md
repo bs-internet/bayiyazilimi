@@ -336,6 +336,7 @@ Başlıca kancalar:
 | `security.csp` | CSP'ye dış kaynak ekleme |
 | `site.public_access`, `shop.storefront_enabled`, `shop.customer_types` | Siteyi ziyaretçiye açma, vitrin alanları, müşteri (B2C) hesapları (vitrin kullanır) |
 | `auth.home`, `user.area_access` | Kullanıcıya kendi alanını verme (ör. plasiyer `/plasiyer`) |
+| `auth.login.props` | Giriş sayfasına veri (ön yüzde `auth.login` yuvası; ör. demo hesapları) |
 | `seo.robots` | `/robots.txt` (çekirdek varsayılanı `Disallow: /`) |
 | `database.seed` | Kurulumda temel veri |
 
