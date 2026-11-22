@@ -96,28 +96,58 @@ export default function Register({ contracts }: Props) {
                                 />
                             </div>
 
-                            {contracts.length > 0 ? (
-                                <div className="grid gap-2">
+                            {/* Her sözleşme ayrı kutuyla onaylatılır. */}
+                            {contracts.map((contract) => (
+                                <div key={contract.slug} className="grid gap-2">
                                     <div className="flex items-start gap-3">
                                         <Checkbox
-                                            id="agreement"
-                                            name="agreement"
+                                            id={`agreement-${contract.slug}`}
+                                            name={`agreements[${contract.slug}]`}
                                             value="1"
                                             required
                                             className="mt-0.5"
                                         />
                                         <Label
-                                            htmlFor="agreement"
+                                            htmlFor={`agreement-${contract.slug}`}
                                             className="block leading-snug font-normal"
                                         >
                                             <ContractAgreementLabel
-                                                contracts={contracts}
+                                                contracts={[contract]}
                                             />
                                         </Label>
                                     </div>
-                                    <InputError message={errors.agreement} />
+                                    <InputError
+                                        message={
+                                            errors[
+                                                `agreements.${contract.slug}`
+                                            ]
+                                        }
+                                    />
                                 </div>
-                            ) : null}
+                            ))}
+
+                            {/* Ticari elektronik ileti onayı: isteğe bağlı, işaretsiz gelir. */}
+                            <div className="grid gap-2">
+                                <div className="flex items-start gap-3">
+                                    <Checkbox
+                                        id="marketing_consent"
+                                        name="marketing_consent"
+                                        value="1"
+                                        className="mt-0.5"
+                                    />
+                                    <Label
+                                        htmlFor="marketing_consent"
+                                        className="block leading-snug font-normal"
+                                    >
+                                        {t(
+                                            'Kampanya ve yenilikler hakkında e-posta ve telefonla ticari ileti almak istiyorum.',
+                                        )}
+                                    </Label>
+                                </div>
+                                <InputError
+                                    message={errors.marketing_consent}
+                                />
+                            </div>
 
                             <Button
                                 type="submit"

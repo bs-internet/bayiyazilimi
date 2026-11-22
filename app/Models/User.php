@@ -29,7 +29,7 @@ use Yadahan\AuthenticationLog\AuthenticationLogable;
  * @property UserStatus $status
  * @property UserType $user_type
  */
-#[Fillable(['name', 'email', 'password', 'status', 'user_type', 'locale', 'timezone', 'media_directory', 'account_id'])]
+#[Fillable(['name', 'email', 'password', 'status', 'user_type', 'locale', 'timezone', 'media_directory', 'account_id', 'marketing_consent_at'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -50,6 +50,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'last_login_at' => 'datetime',
+            // Üyelik formundaki isteğe bağlı ticari ileti onayının zamanı.
+            'marketing_consent_at' => 'immutable_datetime',
         ];
     }
 

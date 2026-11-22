@@ -50,6 +50,11 @@ export function MemberSummaryCard({
                     <Row label={t('Kayıt tarihi')}>
                         {formatDate(user.created_at)}
                     </Row>
+                    <Row label={t('Ticari ileti onayı')}>
+                        {user.marketing_consent_at
+                            ? formatDateTime(user.marketing_consent_at)
+                            : t('Verilmedi')}
+                    </Row>
                     <Row label={t('Son giriş')}>
                         {formatDateTime(
                             user.last_login_at as string | null | undefined,

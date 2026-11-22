@@ -6,8 +6,6 @@ namespace App\Http\Controllers\App\Shop;
 
 use App\Http\Controllers\Controller;
 use App\Models\Contract;
-use App\Support\ContentPlaceholders;
-use App\Support\HtmlSanitizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
@@ -40,7 +38,7 @@ class ContractController extends Controller
         return Inertia::render('app/shop/contracts/show', [
             'contract' => [
                 'title' => $contract->title,
-                'content' => ContentPlaceholders::fill(HtmlSanitizer::clean($contract->content)),
+                'content' => $contract->renderedContent(),
                 'updated_at' => $contract->updated_at?->toIso8601String(),
             ],
             'items' => $this->items($contracts),

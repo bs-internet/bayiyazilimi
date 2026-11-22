@@ -45,8 +45,9 @@ function Placements({
     registration: boolean;
 }) {
     const onRegistration = registration && contract.show_on_registration;
+    const onSite = registration && contract.show_on_site;
 
-    if (!contract.show_on_checkout && !onRegistration) {
+    if (!contract.show_on_checkout && !onRegistration && !onSite) {
         return <Badge variant="outline">{t('Genel')}</Badge>;
     }
 
@@ -58,6 +59,7 @@ function Placements({
             {onRegistration ? (
                 <Badge variant="secondary">{t('Üyelik formu')}</Badge>
             ) : null}
+            {onSite ? <Badge variant="secondary">{t('Site')}</Badge> : null}
         </div>
     );
 }
@@ -78,7 +80,7 @@ export default function ContractIndex({ contracts, registration }: Props) {
                         active: activeCount,
                     })}
                     description={t(
-                        'Ödeme formunda onaylatılan metinler. Aktif sözleşmelerin hepsi bayi panelindeki Sözleşmeler bölümünde de okunur.',
+                        'Yasal metinlerin tek yeri: ödeme / üyelik formunda onaylatılır, sitede sayfa olarak yayınlanır. Aktif sözleşmelerin hepsi bayi panelindeki Sözleşmeler bölümünde de okunur.',
                     )}
                     actions={
                         <Button asChild>

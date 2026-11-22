@@ -201,6 +201,8 @@ export type Contract = {
     content?: string | null;
     show_on_checkout: boolean;
     show_on_registration: boolean;
+    /** Sitede (vitrin) herkese açık sayfa olarak yayınlanır. */
+    show_on_site: boolean;
     status: Status;
     sort_order: number;
     updated_at: string | null;
@@ -223,6 +225,8 @@ export type ContentPlaceholder = {
 export type CustomerType = 'customer' | 'dealer';
 
 export type MemberCustomerInfo = {
+    /** Üyelik formundaki isteğe bağlı ticari ileti onayının zamanı. */
+    marketing_consent_at?: string | null;
     /** Hesabı henüz açılmamış üyede null. */
     customer_type: CustomerType | null;
     company: string | null;

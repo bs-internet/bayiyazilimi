@@ -20,6 +20,11 @@ return new class extends Migration
     public function up(): void
     {
         foreach (['quotes', 'orders'] as $table) {
+            // Yarıda kalmış bir denemeden sonra tekrar çalışabilsin.
+            if (Schema::hasColumn($table, 'marketing_consent_at')) {
+                continue;
+            }
+
             Schema::table($table, function (Blueprint $table) {
                 $table->timestamp('marketing_consent_at')->nullable()->after('ip_address');
             });

@@ -33,12 +33,12 @@ class ContractController extends Controller
                 'slug' => $c->slug,
                 'show_on_checkout' => $c->show_on_checkout,
                 'show_on_registration' => $c->show_on_registration,
+                'show_on_site' => $c->show_on_site,
                 'status' => $c->status->value,
                 'sort_order' => $c->sort_order,
                 'updated_at' => $c->updated_at?->toIso8601String(),
             ])->values()->all(),
             'registration' => self::registrationOpen(),
-            'placeholders' => ContentPlaceholders::catalog(),
         ]);
     }
 
@@ -65,6 +65,7 @@ class ContractController extends Controller
                 'content' => $contract->content,
                 'show_on_checkout' => $contract->show_on_checkout,
                 'show_on_registration' => $contract->show_on_registration,
+                'show_on_site' => $contract->show_on_site,
                 'status' => $contract->status->value,
                 'sort_order' => $contract->sort_order,
                 'updated_at' => $contract->updated_at?->toIso8601String(),

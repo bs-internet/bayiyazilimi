@@ -135,14 +135,46 @@ it('leaves the bank account placeholder empty when no account is active', functi
     expect(ContentPlaceholders::fill('<p>Hesaplar:</p><p>{banka_hesaplari}</p>'))->toBe('<p>Hesaplar:</p>');
 });
 
-it('requires the registration agreement only when a registration contract is active', function () {
+it('asks each registration contract separately and records the optional commercial message consent', function () {
     $input = ['name' => 'Yeni Üye', 'email' => 'yeni@ornek.com', 'password' => 'Gizli.Sifre-2026', 'password_confirmation' => 'Gizli.Sifre-2026'];
 
-    makeContract(['show_on_registration' => true]);
+    // Onaylatılan sözleşme yokken kutu da yok; ileti onayı verilmezse zaman boş.
+    expect(app(CreateNewUser::class)->create($input)->marketing_consent_at)->toBeNull();
 
-    expect(fn () => app(CreateNewUser::class)->create($input))->toThrow(ValidationException::class);
+    makeContract(['title' => 'Üyelik Sözleşmesi', 'slug' => 'uyelik', 'show_on_registration' => true]);
+    makeContract(['title' => 'KVKK', 'slug' => 'kvkk', 'show_on_registration' => true, 'sort_order' => 2]);
+    $input['email'] = 'ikinci@ornek.com';
 
-    expect(app(CreateNewUser::class)->create([...$input, 'agreement' => '1']))->email->toBe('yeni@ornek.com');
+    try {
+        app(CreateNewUser::class)->create([...$input, 'agreements' => ['uyelik' => '1']]);
+        $this->fail('KVKK onayı olmadan kayıt açılmamalı.');
+    } catch (ValidationException $e) {
+        expect($e->errors())->toHaveKey('agreements.kvkk')->not->toHaveKey('agreements.uyelik');
+    }
+
+    $user = app(CreateNewUser::class)->create([...$input, 'agreements' => ['uyelik' => '1', 'kvkk' => '1'], 'marketing_consent' => '1']);
+
+    expect($user->email)->toBe('ikinci@ornek.com')
+        ->and($user->fresh()->marketing_consent_at)->not->toBeNull();
+
+    $this->actingAs($this->admin)->get(route('panel.members.show', $user))
+        ->assertInertia(fn (Assert $page) => $page->where('user.data.marketing_consent_at', fn ($value) => $value !== null));
+});
+
+it('publishes a contract on the site only while the site is public', function () {
+    $contract = makeContract();
+    $payload = ['title' => 'Satış Sözleşmesi', 'show_on_site' => '1'];
+
+    hooks()->filter('site.public_access', fn () => false, PHP_INT_MAX);
+    $this->actingAs($this->admin)->put(route('panel.shop.contracts.update', $contract), $payload)->assertSessionHasNoErrors();
+    expect($contract->fresh()->show_on_site)->toBeFalse();
+
+    hooks()->filter('site.public_access', fn () => true, PHP_INT_MAX);
+    $this->actingAs($this->admin)->put(route('panel.shop.contracts.update', $contract), $payload)->assertSessionHasNoErrors();
+    expect($contract->fresh()->show_on_site)->toBeTrue();
+
+    $this->actingAs($this->admin)->get(route('panel.shop.contracts.edit', $contract))
+        ->assertInertia(fn (Assert $page) => $page->where('contract.show_on_site', true));
 });
 
 it('lists active contracts in the dealer panel', function () {

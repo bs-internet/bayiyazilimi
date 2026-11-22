@@ -79,7 +79,8 @@ final class ContentPlaceholders
             'adres' => ['label' => __('Adres (tek satır)'), 'value' => fn (): string => e(ShopSettings::storeAddressLine())],
             'telefon' => ['label' => __('Telefon'), 'value' => $setting('store_phone')],
             'eposta' => ['label' => __('E-posta'), 'value' => $setting('store_email')],
-            'web' => ['label' => __('Site adresi'), 'value' => fn (): string => e(url('/'))],
+            // Metin içinde okunur biçim: "dayland.com.tr" (şema ve sondaki / olmadan).
+            'web' => ['label' => __('Site adresi'), 'value' => fn (): string => e((string) parse_url(url('/'), PHP_URL_HOST))],
             'banka_hesaplari' => ['label' => __('Aktif banka hesapları (tablo)'), 'value' => fn (): string => self::bankAccounts()],
         ]);
     }

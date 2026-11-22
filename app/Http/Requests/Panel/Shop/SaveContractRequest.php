@@ -25,6 +25,7 @@ class SaveContractRequest extends FormRequest
             'content' => ['nullable', 'string'],
             'show_on_checkout' => ['boolean'],
             'show_on_registration' => ['boolean'],
+            'show_on_site' => ['boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ];
     }
@@ -39,12 +40,13 @@ class SaveContractRequest extends FormRequest
         $data = $this->validated();
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
         $data['show_on_checkout'] = $this->boolean('show_on_checkout');
-        // Üyelik formu yalnız site herkese açıkken (vitrin) vardır; yoksa kutu
-        // formda yoktur ve kayıtlı değere dokunulmaz.
+        // Üyelik formu ve sitedeki sayfa yalnız site herkese açıkken (vitrin) vardır;
+        // yoksa kutular formda yoktur ve kayıtlı değerlere dokunulmaz.
         if (SiteAccessGate::isPublic()) {
             $data['show_on_registration'] = $this->boolean('show_on_registration');
+            $data['show_on_site'] = $this->boolean('show_on_site');
         } else {
-            unset($data['show_on_registration']);
+            unset($data['show_on_registration'], $data['show_on_site']);
         }
 
         return $data;

@@ -150,7 +150,7 @@ export default function ContractEdit({
                                 <SectionCard
                                     title={t('Gösterildiği yer')}
                                     description={t(
-                                        "İşaretliyse formda onaylatılır. İşaretsizse genel sözleşmedir; aktifse yalnız bayi panelindeki Sözleşmeler'de okunur.",
+                                        "Formlarda her sözleşme ayrı kutuyla onaylatılır; sitede yayınlanan sözleşme herkese açık bir sayfada okunur. Aktif sözleşmelerin hepsi bayi panelindeki Sözleşmeler'de de okunur.",
                                     )}
                                 >
                                     <FieldGroup>
@@ -170,6 +170,18 @@ export default function ContractEdit({
                                                 )}
                                                 defaultChecked={
                                                     contract?.show_on_registration ??
+                                                    false
+                                                }
+                                            />
+                                        ) : null}
+                                        {registration ? (
+                                            <CheckField
+                                                name="show_on_site"
+                                                label={t(
+                                                    'Sitede sayfa olarak yayınla',
+                                                )}
+                                                defaultChecked={
+                                                    contract?.show_on_site ??
                                                     false
                                                 }
                                             />

@@ -27,6 +27,8 @@ class MemberResource extends JsonResource
             'user_type' => $this->user_type,
             'status' => $this->status,
             'email_verified_at' => $this->email_verified_at,
+            // Üyelik formundaki isteğe bağlı ticari ileti onayının zamanı.
+            'marketing_consent_at' => $this->marketing_consent_at,
             'two_factor_enabled' => $this->two_factor_confirmed_at !== null,
             'last_login_at' => $this->last_login_at,
             'media_directory' => $this->media_directory,

@@ -18,17 +18,25 @@ class CreateNewUser implements CreatesNewUsers
     /**
      * Validate and create a newly registered user.
      *
-     * @param  array<string, string>  $input
+     * @param  array<string, mixed>  $input
      */
     public function create(array $input): User
     {
+        // Üyelik formunda onaylatılan her sözleşmenin kendi onay kutusu vardır.
+        $contracts = Contract::titlesForForm(Contract::REGISTRATION);
+
         Validator::make($input, [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class)],
             'password' => ['required', 'string', Password::default(), 'confirmed'],
-            // Üyelik formunda onaylatılan sözleşme varsa onay zorunlu.
-            'agreement' => Contract::query()->active()->where('show_on_registration', true)->exists() ? ['accepted'] : ['nullable'],
-        ], attributes: ['agreement' => __('sözleşme onayı')])->validate();
+            'agreements' => ['nullable', 'array'],
+            ...collect($contracts)->mapWithKeys(fn (string $title, string $slug) => ["agreements.{$slug}" => ['accepted']])->all(),
+            // Ticari elektronik ileti onayı (6563 s. Kanun): isteğe bağlı, ayrı kutu.
+            'marketing_consent' => ['nullable', 'boolean'],
+        ], attributes: [
+            'marketing_consent' => __('ticari ileti onayı'),
+            ...collect($contracts)->mapWithKeys(fn (string $title, string $slug) => ["agreements.{$slug}" => $title])->all(),
+        ])->validate();
 
         return User::create([
             'name' => $input['name'],
@@ -36,6 +44,7 @@ class CreateNewUser implements CreatesNewUsers
             'password' => $input['password'],
             'status' => UserStatus::Draft,
             'user_type' => UserType::Member,
+            'marketing_consent_at' => filter_var($input['marketing_consent'] ?? false, FILTER_VALIDATE_BOOLEAN) ? now() : null,
         ]);
     }
 }

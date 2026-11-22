@@ -142,8 +142,6 @@ class CheckoutRequest extends FormRequest
      */
     private function checkoutContracts(): array
     {
-        return $this->checkoutContracts ??= Contract::query()->active()
-            ->where('show_on_checkout', true)
-            ->pluck('title', 'slug')->all();
+        return $this->checkoutContracts ??= Contract::titlesForForm(Contract::CHECKOUT);
     }
 }
