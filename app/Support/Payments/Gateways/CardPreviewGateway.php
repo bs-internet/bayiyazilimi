@@ -18,8 +18,8 @@ use Symfony\Component\HttpFoundation\Response;
  * formu → kart ekranı) göstermek için. Satış Ayarları'ndan açılır, varsayılan kapalı.
  *
  * Hiçbir zaman ödeme almaz: "Ödeme Yap" kartı doğrular ama sağlayıcıya gitmez,
- * müşteriyi uyarıyla kart ekranına geri döndürür. Sipariş "ödeme bekliyor" kalır ve
- * süresi dolunca (pendingTimeout) ödeme başarısız sayılır, stok geri döner.
+ * müşteriyi uyarıyla kart ekranına geri döndürür. Sipariş ödeme alınınca açıldığı için
+ * (CardCheckout) hiç sipariş oluşmaz; bekleyen ödeme kaydı süresi dolunca kapanır.
  * Gerçek sanal pos sürücüsü kurulunca kapatılır.
  */
 final class CardPreviewGateway extends CardFormGateway
@@ -48,7 +48,7 @@ final class CardPreviewGateway extends CardFormGateway
 
     public function charge(Payment $payment, CardDetails $card, Request $request): Response
     {
-        return back()->with('toast', ['type' => 'warning', 'message' => __('Kartla ödeme henüz devreye alınmadı; kartınızdan çekim yapılmadı. Siparişinizi havale / EFT ile tamamlayabilir ya da bizimle iletişime geçebilirsiniz.')]);
+        return back()->with('toast', ['type' => 'warning', 'message' => __('Kartla ödeme henüz devreye alınmadı; kartınızdan çekim yapılmadı ve sipariş oluşturulmadı. Ödeme formuna dönüp başka bir ödeme yöntemi seçebilirsiniz.')]);
     }
 
     public function handleCallback(Request $request): Response

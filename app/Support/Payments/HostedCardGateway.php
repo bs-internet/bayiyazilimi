@@ -10,6 +10,8 @@ use App\Models\Account;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\Shop\Basket;
+use App\Services\Shop\CardCheckout;
 use App\Services\Shop\LedgerService;
 use App\Services\Shop\OrderService;
 use App\Support\Money;
@@ -129,6 +131,17 @@ abstract class HostedCardGateway extends BaseGateway implements AcceptsBalancePa
 
             $order = $payment->order_id !== null ? Order::query()->withoutGlobalScopes()->find($payment->order_id) : null;
 
+            // Kart ekranıyla ödenen sipariş ödeme alınınca açılır.
+            if ($order === null && $payment->checkout !== null) {
+                $order = app(CardCheckout::class)->place($payment);
+
+                if ($order === null) {
+                    $payment->forceFill(['status' => PaymentStatus::Paid, 'failed_reason' => __('Ödeme alındı ama sipariş oluşturulamadı.')])->save();
+
+                    return;
+                }
+            }
+
             if ($order !== null) {
                 app(OrderService::class)->markPaid($order, null, $installment > 1
                     ? __('Kartla ödendi (:method, :count taksit).', ['method' => $this->label(), 'count' => $installment])
@@ -181,6 +194,11 @@ abstract class HostedCardGateway extends BaseGateway implements AcceptsBalancePa
 
         $payment->refresh();
         $order = $payment->order_id !== null ? Order::query()->withoutGlobalScopes()->find($payment->order_id) : null;
+
+        if ($payment->checkout !== null) {
+            return $this->finishCheckout($payment, $order);
+        }
+
         $target = $order !== null ? $order->customerUrl() : route('app.shop.payments.index');
 
         $toast = match ($payment->status) {
@@ -192,6 +210,27 @@ abstract class HostedCardGateway extends BaseGateway implements AcceptsBalancePa
         };
 
         return redirect()->to($target)->with('toast', $toast);
+    }
+
+    /**
+     * Kart ekranıyla ödenen sipariş: ödendiyse siparişin sayfası (sepet boşalır), ödenmediyse
+     * sipariş hiç açılmadığı için ödeme formu (sepet duruyor).
+     */
+    private function finishCheckout(Payment $payment, ?Order $order): RedirectResponse
+    {
+        if ($payment->status === PaymentStatus::Paid) {
+            Basket::cart()->clear();
+
+            return $order !== null
+                ? redirect()->to($order->customerUrl())->with('toast', ['type' => 'success', 'message' => __('Ödemeniz alındı. Sipariş numaranız: :number', ['number' => $order->number])])
+                : redirect()->to(CardCheckout::backUrl($payment))->with('toast', ['type' => 'warning', 'message' => __('Ödemeniz alındı ancak sipariş oluşturulamadı; en kısa sürede sizinle iletişime geçeceğiz.')]);
+        }
+
+        return redirect()->to(CardCheckout::backUrl($payment))->with('toast', $payment->status === PaymentStatus::Pending
+            ? ['type' => 'info', 'message' => __('Ödemeniz işleniyor; birkaç dakika içinde sonuçlanacak.')]
+            : ['type' => 'error', 'message' => $payment->failed_reason
+                ? __('Ödeme tamamlanamadı: :reason', ['reason' => $payment->failed_reason])
+                : __('Ödeme tamamlanamadı.')]);
     }
 
     /**
@@ -214,6 +253,20 @@ abstract class HostedCardGateway extends BaseGateway implements AcceptsBalancePa
                 'address' => trim(($billing['address'] ?? '').' '.($billing['district'] ?? '').' '.($billing['city'] ?? '')) ?: 'Türkiye',
                 'city' => (string) ($billing['city'] ?? 'İstanbul'),
                 'description' => "Sipariş {$order->number}",
+            ];
+        }
+
+        if ($payment->checkout !== null) {
+            $data = (array) ($payment->checkout['data'] ?? []);
+            $billing = (array) ($data['billing'] ?? []);
+
+            return [
+                'name' => (string) ($billing['name'] ?? 'Müşteri'),
+                'email' => (string) ($data['email'] ?? ''),
+                'phone' => (string) (($data['phone'] ?? '') ?: '05000000000'),
+                'address' => trim(($billing['address'] ?? '').' '.($billing['district'] ?? '').' '.($billing['city'] ?? '')) ?: 'Türkiye',
+                'city' => (string) ($billing['city'] ?? 'İstanbul'),
+                'description' => 'Sipariş ödemesi',
             ];
         }
 

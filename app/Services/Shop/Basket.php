@@ -64,6 +64,20 @@ class Basket
         return app()->makeWith(self::class, ['name' => 'saved.'.$savedCartId]);
     }
 
+    /**
+     * Kart ekranıyla ödenen siparişin sepeti: ödeme formundaki ürünlerin anlık görüntüsü
+     * (sağlayıcı bildirimi oturumsuz gelir; sipariş ödeme alınınca bu sepetten açılır).
+     *
+     * @param  array<string, int>  $items
+     */
+    public static function snapshot(string $reference, array $items): self
+    {
+        $basket = app()->makeWith(self::class, ['name' => 'payment.'.$reference]);
+        session([$basket->key() => $items]);
+
+        return $basket;
+    }
+
     private function key(): string
     {
         return 'shop.basket.'.$this->name;

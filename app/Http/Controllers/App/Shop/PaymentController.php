@@ -41,7 +41,7 @@ class PaymentController extends Controller
     {
         // Order, Payment ve PaymentNotification hesap kapsamlıdır (bind_account).
         $orders = Order::query()->with(['payments'])->latest()->limit(200)->get();
-        $balance = Payment::query()->whereNull('order_id')->latest()->limit(200)->get();
+        $balance = Payment::query()->whereNull('order_id')->whereNull('checkout')->latest()->limit(200)->get();
         $account = $request->user()?->account;
         $banks = BankAccount::query()->active()->ordered()->get();
         // Havale bildirimi yalnız bayi panelinde (vitrin Hesabım'da değil).

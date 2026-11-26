@@ -7,6 +7,7 @@ namespace App\Http\Controllers\App\Shop;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Shop\CheckoutController;
 use App\Http\Requests\Shop\CheckoutRequest;
+use App\Models\Payment;
 use App\Models\SavedCart;
 use App\Services\Shop\Basket;
 use App\Services\Shop\CurrencyManager;
@@ -15,6 +16,7 @@ use App\Services\Shop\SavedCartService;
 use App\Services\Shop\ShippingService;
 use App\Support\Money;
 use App\Support\Pagination;
+use App\Support\Payments\HostedCardGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -90,10 +92,12 @@ class SavedCartController extends Controller
             return to_route('app.shop.saved-carts.checkout', $savedCart->id);
         }
 
-        $order = $orders->placeFromCart($basket, $request->orderData(), $request->user(), $currencies->current(), $request->ip());
+        $result = CheckoutController::placeOrStartPayment($orders, $basket, $request->orderData(), $request->user(), $currencies->current(), $request->ip());
         CheckoutController::rememberAddress($request);
 
-        return CheckoutController::redirectAfterPlaced($order, route('app.shop.orders.show', $order->id));
+        return $result instanceof Payment
+            ? redirect()->to(HostedCardGateway::payUrl($result))
+            : CheckoutController::redirectAfterPlaced($result, route('app.shop.orders.show', $result->id));
     }
 
     public function index(CurrencyManager $currencies, SavedCartService $service): Response

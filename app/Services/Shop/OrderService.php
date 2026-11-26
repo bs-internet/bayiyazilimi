@@ -61,6 +61,39 @@ class OrderService
     }
 
     /**
+     * Sepetten sipariş oluşturmadan son hali: aynı denetimler (stok, adet, kargo, kampanya,
+     * ödeme farkı, ekrandaki tutar) ve aynı hesap; kayıt yapılmaz, stok düşülmez, sepet
+     * boşalmaz. Dönen sipariş kaydedilmemiştir (satırları ve kargosu yüklüdür).
+     * Kart ekranıyla ödenecek sipariş ödeme alınana kadar böyle gösterilir (CardCheckout).
+     *
+     * @param  array<string, mixed>  $data  doğrulanmış ödeme formu
+     */
+    public function previewFromCart(Basket $cart, array $data, ?User $user, Currency $currency, ?string $ip = null): Order
+    {
+        try {
+            $this->placeCart($cart, $data, $user, $currency, $ip, dryRun: true);
+        } catch (OrderPreview $preview) {
+            // Geri alınan kayıt: yanlışlıkla kaydedilmesin, numarası gösterilmesin.
+            $preview->order->exists = false;
+
+            return $preview->order;
+        }
+
+        throw new \LogicException('Sipariş önizlemesi üretilemedi.');
+    }
+
+    /**
+     * Kart ekranında ödemesi alınmış siparişi açar: sürücünün `start()`'ı çağrılmaz,
+     * ödeme kaydı siparişe bağlanır (ödendi işaretlemesini çağıran yapar).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function placeFromCartWithPayment(Basket $cart, array $data, ?User $user, Currency $currency, Payment $payment, ?string $ip = null): Order
+    {
+        return $this->placeCart($cart, $data, $user, $currency, $ip, payment: $payment);
+    }
+
+    /**
      * Ödeme anahtarı tek kullanımlıktır (çift gönderim iki sipariş açmaz);
      * sipariş oluşmazsa anahtar bırakılır.
      *
@@ -84,7 +117,7 @@ class OrderService
     /**
      * @param  array<string, mixed>  $data
      */
-    private function placeCart(Basket $cart, array $data, ?User $user, Currency $currency, ?string $ip): Order
+    private function placeCart(Basket $cart, array $data, ?User $user, Currency $currency, ?string $ip, ?Payment $payment = null, bool $dryRun = false): Order
     {
         $lines = $cart->lines($currency);
 
@@ -130,7 +163,7 @@ class OrderService
         $campaign = $campaignResult?->campaign;
         $gateway = $this->gatewayFor($data['payment_method'] ?? null, $user, $totals['total'], $currency);
 
-        $order = DB::transaction(function () use ($lines, $totals, $data, $user, $currency, $ip, $campaign, $campaignResult, $campaignContext, $gateway) {
+        $order = DB::transaction(function () use ($lines, $totals, $data, $user, $currency, $ip, $campaign, $campaignResult, $campaignContext, $gateway, $payment, $dryRun) {
             $this->lockAndCheckStock($lines);
 
             $order = $this->newOrder($data, $user, $currency, $ip);
@@ -163,7 +196,7 @@ class OrderService
             }
 
             // Kullanım limiti: kampanya kilitlenip yeniden denetlenir, kullanım yazılır.
-            if ($campaignResult !== null && $campaignContext !== null) {
+            if (! $dryRun && $campaignResult !== null && $campaignContext !== null) {
                 app(CampaignUsages::class)->claim($campaignResult, $campaignContext, $order);
             }
 
@@ -172,7 +205,12 @@ class OrderService
             // Müşterinin ekranda gördüğü tutar değiştiyse (fiyat, kur, kampanya, il) sipariş açılmaz.
             CheckoutGuard::confirmTotal($data['expected_total'] ?? null, $order->grand_total, $currency->code);
 
-            $this->afterPlaced($order, $gateway);
+            if ($dryRun) {
+                // Hiçbir şey kaydedilmez: transaction geri alınır, sipariş bellekte döner.
+                throw new OrderPreview($order->load('items', 'carrier'));
+            }
+
+            $this->afterPlaced($order, $gateway, payment: $payment);
 
             return $order;
         });
@@ -960,7 +998,7 @@ class OrderService
      * Sipariş kaydının ardından (aynı transaction): geçmiş, stok ayırma ve ödeme
      * sürücüsünün başlangıcı (yönlendirme isteyebilir; vadeli siparişin durumunu belirler).
      */
-    private function afterPlaced(Order $order, PaymentGateway $gateway, ?string $extraNote = null): void
+    private function afterPlaced(Order $order, PaymentGateway $gateway, ?string $extraNote = null, ?Payment $payment = null): void
     {
         $order->histories()->create([
             'status' => OrderStatus::Pending,
@@ -973,6 +1011,13 @@ class OrderService
 
         // Stok sipariş anında ayrılır (düşülür); iptalde ya da ödeme başarısız olursa geri eklenir.
         $this->stock->deductForOrder($order);
+
+        if ($payment !== null) {
+            // Ödeme kart ekranında sipariş açılmadan alındı: kayıt siparişe bağlanır.
+            $payment->forceFill(['order_id' => $order->id, 'account_id' => $order->account_id, 'user_id' => $order->user_id])->save();
+
+            return;
+        }
 
         $order->paymentStart = $gateway->start($order);
     }

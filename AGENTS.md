@@ -180,9 +180,14 @@ bağlanan modele güvenilmez). `status` başka yerde yazılmaz.
   Ödemesi başarısız olan teklif siparişinin teklifi yeniden ödenebilir hale gelir. Kart sürücüsü
   `ReconcilesPayments` uygularsa süre aşımı komutu ödemeyi başarısız saymadan önce sağlayıcıya sorar.
 - **Kart ekranı** — kart bilgisini mağazanın kendi sayfasında alan sürücüler `CardFormGateway`'i genişletir:
-  ödeme formu → sipariş "ödeme bekliyor" → imzalı `/odeme/kart/{ref}` (girilen bilgiler, siparişin son hali,
-  kart formu; `shop/payment/card`, tema değiştirebilir; bayi `app/shop/payment/card`) → "Ödeme Yap" düz form
-  POST'u → `charge()` (3D'ye götürür). Kart bilgisi saklanmaz, oturuma yazılmaz (`dontFlash`). Sanal pos
+  **sipariş ödeme alınınca açılır.** Ödeme formu siparişle aynı denetimlerden geçer (`OrderService::previewFromCart`,
+  kayıt yapmaz) ve yalnız bekleyen ödeme kaydı açılır (`CardCheckout`; form bilgileri + sepet görüntüsü
+  `payments.checkout`'ta; sepet boşalmaz, stok düşülmez, e-posta gitmez) → imzalı `/odeme/kart/{ref}` (girilen
+  bilgiler, siparişin son hali, kart formu; `shop/payment/card`, tema değiştirebilir; bayi `app/shop/payment/card`)
+  → "Ödeme Yap" düz form POST'u (sepet / tutar değiştiyse kart sağlayıcıya gitmez) → `charge()` (3D'ye götürür)
+  → `complete()` siparişi açar ve ödemeyi bağlar; vazgeçilen / başarısız ödemede sipariş hiç oluşmaz. Ödeme alınıp
+  sipariş açılamazsa (stok tükendi) hata yöneticiye raporlanır. Teklif ödemesi eski akışta (sipariş önce açılır).
+  Kart bilgisi saklanmaz, oturuma yazılmaz (`dontFlash`). Sanal pos
   yokken akışı göstermek için `CardPreviewGateway` (Satış Ayarları › Kart ekranı önizlemesi; ödeme almaz).
 - **İade (kart)** — `payment_refunds`: pending → succeeded / failed. Satır sağlayıcı çağrısından
   **önce** yazılır; sonuç alınamazsa pending kalır ve tutarı ayırmaya devam eder (çift iade olmaz).

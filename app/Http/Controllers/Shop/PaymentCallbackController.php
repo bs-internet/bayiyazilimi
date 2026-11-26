@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Shop\ChargeCardRequest;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Services\Shop\CardCheckout;
 use App\Support\Money;
 use App\Support\Payments\CardFormGateway;
 use App\Support\Payments\HandlesCallbacks;
@@ -62,7 +63,16 @@ class PaymentCallbackController extends Controller
 
         abort_unless($driver instanceof CardFormGateway, 404);
 
-        return $this->closed($payment) ?? $driver->charge($payment, $request->card(min(12, max(1, $driver->maxInstallment()))), $request);
+        if (($closed = $this->closed($payment)) !== null) {
+            return $closed;
+        }
+
+        // Sipariş henüz açılmadı: kart sağlayıcıya gitmeden sepet ve tutar yeniden denetlenir.
+        if ($payment->checkout !== null && ($problem = app(CardCheckout::class)->problem($payment)) !== null) {
+            return redirect()->to(CardCheckout::backUrl($payment))->with('toast', ['type' => 'warning', 'message' => $problem]);
+        }
+
+        return $driver->charge($payment, $request->card(min(12, max(1, $driver->maxInstallment()))), $request);
     }
 
     /**
@@ -72,7 +82,12 @@ class PaymentCallbackController extends Controller
     private function closed(Payment $payment): ?Response
     {
         $order = $payment->order_id !== null ? Order::query()->withoutGlobalScopes()->find($payment->order_id) : null;
-        $target = $payment->order_id !== null ? ($order?->customerUrl() ?? route('home')) : route('app.shop.payments.index');
+        $target = match (true) {
+            $order !== null => $order->customerUrl(),
+            $payment->checkout !== null => CardCheckout::backUrl($payment),
+            $payment->order_id !== null => route('home'),
+            default => route('app.shop.payments.index'),
+        };
 
         if ($payment->status !== PaymentStatus::Pending) {
             return redirect()->to($target)->with('toast', ['type' => 'info', 'message' => __('Bu ödeme zaten sonuçlanmış.')]);

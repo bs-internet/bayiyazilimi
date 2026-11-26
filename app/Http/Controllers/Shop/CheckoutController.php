@@ -17,15 +17,18 @@ use App\Models\Contract;
 use App\Models\Currency;
 use App\Models\CustomerAddress;
 use App\Models\Order;
+use App\Models\Payment;
 use App\Models\User;
 use App\Services\Account\AccountProvisioner;
 use App\Services\Shop\AddressService;
 use App\Services\Shop\Basket;
+use App\Services\Shop\CardCheckout;
 use App\Services\Shop\CurrencyManager;
 use App\Services\Shop\OrderService;
 use App\Services\Shop\ShippingService;
 use App\Support\Money;
 use App\Support\Payments\CardFormGateway;
+use App\Support\Payments\HostedCardGateway;
 use App\Support\Payments\PaymentContext;
 use App\Support\Payments\PaymentGateway;
 use App\Support\Payments\PaymentRegistry;
@@ -183,10 +186,11 @@ abstract class CheckoutController extends Controller
         // Ziyaretçi "bu bilgilerle üye ol" dediyse üyelik ve sipariş birlikte: sipariş
         // verilemezse üyelik de açılmaz.
         $newUser = null;
-        $order = DB::transaction(function () use ($request, $orders, $currencies, &$newUser): Order {
+        $result = DB::transaction(function () use ($request, $orders, $currencies, &$newUser): Order|Payment {
             $newUser = $request->wantsAccount() ? self::registerFromCheckout($request) : null;
 
-            return $orders->placeFromCart(
+            return self::placeOrStartPayment(
+                $orders,
                 Basket::cart(),
                 $request->orderData(),
                 $newUser ?? $request->user(),
@@ -204,7 +208,9 @@ abstract class CheckoutController extends Controller
 
         self::rememberAddress($request, force: $newUser !== null);
 
-        return self::redirectAfterPlaced($order, $this->placedUrl($order));
+        return $result instanceof Payment
+            ? redirect()->to(HostedCardGateway::payUrl($result))
+            : self::redirectAfterPlaced($result, $this->placedUrl($result));
     }
 
     /**
@@ -363,6 +369,27 @@ abstract class CheckoutController extends Controller
         if (! in_array((string) $method, $available, true)) {
             throw new ShopException(__('Seçilen ödeme yöntemi şu anda kullanılamıyor.'));
         }
+    }
+
+    /**
+     * Sepetten sipariş. Kart ekranlı yöntemde (CardFormGateway) sipariş ödeme alınınca
+     * açılır: şimdilik yalnız bekleyen ödeme kaydı oluşur (CardCheckout); sepet boşalmaz,
+     * stok düşülmez. Müşteri vazgeçerse ya da ödeme başarısız olursa sipariş hiç oluşmaz.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function placeOrStartPayment(OrderService $orders, Basket $cart, array $data, ?User $user, Currency $currency, ?string $ip): Order|Payment
+    {
+        $driver = app(PaymentRegistry::class)->get(isset($data['payment_method']) ? (string) $data['payment_method'] : null);
+
+        if ($driver instanceof CardFormGateway) {
+            $previous = url()->previous();
+            $back = parse_url($previous, PHP_URL_HOST) === request()->getHost() ? $previous : route('home');
+
+            return app(CardCheckout::class)->start($cart, $data, $user, $currency, $ip, $driver, $back);
+        }
+
+        return $orders->placeFromCart($cart, $data, $user, $currency, $ip);
     }
 
     /**

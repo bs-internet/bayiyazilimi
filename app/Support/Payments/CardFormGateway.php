@@ -9,6 +9,7 @@ use App\Models\Currency;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
+use App\Services\Shop\CardCheckout;
 use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -20,7 +21,8 @@ use Symfony\Component\HttpFoundation\Response;
  * doğrudan 3D Secure API'si). Akış HostedCardGateway ile aynıdır; farkı ödeme
  * sayfasıdır:
  *
- * 1. Ödeme formu → sipariş "ödeme bekliyor" açılır → imzalı `/odeme/kart/{ref}`.
+ * 1. Ödeme formu → sipariş açılmaz, bekleyen ödeme kaydı (CardCheckout) → imzalı `/odeme/kart/{ref}`.
+ *    Sipariş ödeme başarılı olunca `complete()` içinde açılır.
  * 2. Kart ekranı (çekirdek sayfa, tema değiştirebilir): girilen bilgiler, siparişin son
  *    hali ve kart formu. "Ödeme Yap" kart bilgisini `charge()`'a verir.
  * 3. `charge()` sağlayıcıya iletir ve müşteriyi 3D doğrulamaya götürür; sonuç
@@ -53,6 +55,12 @@ abstract class CardFormGateway extends HostedCardGateway
         $order = $payment->order_id !== null
             ? Order::query()->withoutGlobalScopes()->with('items', 'carrier')->find($payment->order_id)
             : null;
+        $draft = $payment->checkout !== null;
+
+        // Sipariş ödeme alınınca açılır; o zamana kadar son hali önizlemeyle gösterilir.
+        if ($order === null && $draft) {
+            $order = app(CardCheckout::class)->preview($payment);
+        }
 
         return Inertia::render(self::component($request), [
             'payment' => [
@@ -60,12 +68,12 @@ abstract class CardFormGateway extends HostedCardGateway
                 'method' => $this->label(),
                 'amount' => Money::str($payment->amount),
                 'amount_formatted' => self::currency($payment->currency_code)->format($payment->amount),
-                'description' => $order !== null ? __('Sipariş :number', ['number' => $order->number]) : (string) $payment->note,
+                'description' => $order !== null && $order->exists ? __('Sipariş :number', ['number' => $order->number]) : (string) $payment->note,
             ],
             'order' => $order !== null ? self::presentOrder($order) : null,
             'action' => URL::temporarySignedRoute('shop.payment.charge', now()->addHours(2), ['reference' => $payment->merchant_oid]),
             'csrfToken' => csrf_token(),
-            'backUrl' => $order !== null ? $order->customerUrl() : route('app.shop.payments.index'),
+            'backUrl' => $draft ? CardCheckout::backUrl($payment) : ($order !== null ? $order->customerUrl() : route('app.shop.payments.index')),
             'notice' => $this->notice(),
             'maxInstallment' => max(1, min(12, $this->maxInstallment())),
         ])->toResponse($request);
@@ -102,7 +110,7 @@ abstract class CardFormGateway extends HostedCardGateway
         $carrier = $order->carrier?->name ?? $order->cargo_company;
 
         return [
-            'number' => $order->number,
+            'number' => $order->exists ? $order->number : null,
             'email' => $order->email,
             'phone' => $order->phone,
             'billing' => self::address((array) $order->billing_address),

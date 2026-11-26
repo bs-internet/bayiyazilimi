@@ -344,7 +344,11 @@ export function CardPaymentForm({
                             className={`inline-flex items-center justify-center gap-1 text-[13px] ${kit.linkClass}`}
                         >
                             <ArrowLeft className="size-3.5" />
-                            {order ? t('Sipariş sayfasına dön') : t('Geri dön')}
+                            {order?.number
+                                ? t('Sipariş sayfasına dön')
+                                : order
+                                  ? t('Ödeme formuna dön')
+                                  : t('Geri dön')}
                         </a>
                     </div>
                 </kit.Summary>

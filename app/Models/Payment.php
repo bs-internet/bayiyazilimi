@@ -27,6 +27,7 @@ use Illuminate\Support\Str;
  * @property BigDecimal $fee_amount
  * @property PaymentStatus $status
  * @property array<string, mixed>|null $payload
+ * @property array<string, mixed>|null $checkout kart ekranıyla ödenecek siparişin bilgileri (sipariş ödemeyle açılır)
  */
 #[Fillable([
     'account_id',
@@ -42,6 +43,7 @@ use Illuminate\Support\Str;
     'failed_reason',
     'note',
     'payload',
+    'checkout',
     'user_id',
     'paid_at',
 ])]
@@ -57,6 +59,7 @@ class Payment extends Model
             'installment' => 'integer',
             'status' => PaymentStatus::class,
             'payload' => 'array',
+            'checkout' => 'array',
             'paid_at' => 'immutable_datetime',
         ];
     }

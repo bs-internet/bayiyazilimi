@@ -29,7 +29,8 @@ export type CardPaymentPageProps = {
     };
     /** Sipariş ödemesi değilse (cari tahsilat) null. */
     order: {
-        number: string;
+        /** Sipariş ödeme alınınca açılır; o zamana kadar null. */
+        number: string | null;
         email: string;
         phone: string | null;
         billing: CardPaymentAddress;
