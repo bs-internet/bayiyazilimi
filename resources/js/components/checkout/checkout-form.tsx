@@ -1,5 +1,14 @@
 import { Form } from '@inertiajs/react';
-import { ChevronDown, CreditCard, Landmark, Lock, Wallet } from 'lucide-react';
+import {
+    ChevronDown,
+    CreditCard,
+    Landmark,
+    Lock,
+    LogIn,
+    UserPlus,
+    UserRound,
+    Wallet,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ContractAgreementLabel } from '@/components/contract-agreement';
@@ -351,7 +360,8 @@ export function CheckoutForm({
         />
     );
 
-    const lastStep = !inSummary && carriers.length > 0 ? 5 : 4;
+    const offset = guestAccount ? 1 : 0;
+    const lastStep = offset + (!inSummary && carriers.length > 0 ? 5 : 4);
 
     return (
         <Form action={action} method="post" className={kit.gridClass}>
@@ -371,24 +381,80 @@ export function CheckoutForm({
                         value={payable}
                     />
                     <div className="flex min-w-0 flex-col gap-5">
-                        <kit.Step title={t('İletişim Bilgileri')} step={1}>
-                            {guestAccount ? (
-                                <p className="mb-4 text-[13px]">
-                                    {t('Üye misiniz?')}{' '}
-                                    <a
-                                        href={guestAccount.login_url}
-                                        className={kit.linkClass}
+                        {guestAccount ? (
+                            <kit.Step title={t('Üyelik')} step={1}>
+                                <kit.AddressPreview>
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <span className="flex items-center gap-2">
+                                            <LogIn className="size-5 shrink-0 opacity-70" />
+                                            <span>
+                                                <strong className="block">
+                                                    {t('Zaten üye misiniz?')}
+                                                </strong>
+                                                <span className="text-xs opacity-75">
+                                                    {t(
+                                                        'Sepetiniz korunur, kayıtlı adreslerinizi seçebilirsiniz.',
+                                                    )}
+                                                </span>
+                                            </span>
+                                        </span>
+                                        <a
+                                            href={guestAccount.login_url}
+                                            className={kit.linkClass}
+                                        >
+                                            {t('Giriş yapın')} →
+                                        </a>
+                                    </div>
+                                </kit.AddressPreview>
+                                <input
+                                    type="hidden"
+                                    name="create_account"
+                                    value={createAccount ? '1' : '0'}
+                                />
+                                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                    <kit.Choice
+                                        name="account_choice"
+                                        card
+                                        checked={!createAccount}
+                                        onChange={() => setCreateAccount(false)}
                                     >
-                                        {t('Giriş yapın')}
-                                    </a>
-                                    <span className="opacity-70">
-                                        {' · '}
-                                        {t(
-                                            'Sepetiniz korunur, kayıtlı adreslerinizi seçebilirsiniz.',
-                                        )}
-                                    </span>
-                                </p>
-                            ) : null}
+                                        <UserRound className="size-5 shrink-0 opacity-70" />
+                                        <span>
+                                            <strong className="block">
+                                                {t('Üye olmadan devam et')}
+                                            </strong>
+                                            <span className="text-xs opacity-75">
+                                                {t(
+                                                    'Sipariş bilgileri e-postanıza gönderilir.',
+                                                )}
+                                            </span>
+                                        </span>
+                                    </kit.Choice>
+                                    <kit.Choice
+                                        name="account_choice"
+                                        card
+                                        checked={createAccount}
+                                        onChange={() => setCreateAccount(true)}
+                                    >
+                                        <UserPlus className="size-5 shrink-0 opacity-70" />
+                                        <span>
+                                            <strong className="block">
+                                                {t('Bu bilgilerle üye ol')}
+                                            </strong>
+                                            <span className="text-xs opacity-75">
+                                                {t(
+                                                    "Siparişlerinizi Hesabım'dan izleyin, adresleriniz kaydedilsin.",
+                                                )}
+                                            </span>
+                                        </span>
+                                    </kit.Choice>
+                                </div>
+                            </kit.Step>
+                        ) : null}
+                        <kit.Step
+                            title={t('İletişim Bilgileri')}
+                            step={1 + offset}
+                        >
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <kit.TextField
                                     label={t('E-posta')}
@@ -412,19 +478,7 @@ export function CheckoutForm({
                             </div>
                             {guestAccount ? (
                                 <>
-                                    <kit.Divider />
-                                    <input
-                                        type="hidden"
-                                        name="create_account"
-                                        value={createAccount ? '1' : '0'}
-                                    />
-                                    <kit.CheckField
-                                        label={t(
-                                            "Bu bilgilerle üye olmak istiyorum (siparişlerinizi Hesabım'dan izlersiniz)",
-                                        )}
-                                        checked={createAccount}
-                                        onCheckedChange={setCreateAccount}
-                                    />
+                                    {createAccount ? <kit.Divider /> : null}
                                     {createAccount ? (
                                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
                                             <kit.TextField
@@ -483,8 +537,10 @@ export function CheckoutForm({
                                 </>
                             ) : null}
                         </kit.Step>
-
-                        <kit.Step title={t('Teslimat Adresi')} step={2}>
+                        <kit.Step
+                            title={t('Teslimat Adresi')}
+                            step={2 + offset}
+                        >
                             <input
                                 type="hidden"
                                 name="same_address"
@@ -525,25 +581,32 @@ export function CheckoutForm({
                                     className="sm:col-span-2"
                                     autoComplete="shipping street-address"
                                 />
-                                <kit.LocationSelects
-                                    prefix="shipping"
-                                    cities={cities}
-                                    defaultCity={shipping.city}
-                                    defaultDistrict={shipping.district}
-                                    cityError={errors['shipping.city']}
-                                    districtError={errors['shipping.district']}
-                                />
-                                <kit.TextField
-                                    label={t('Posta Kodu')}
-                                    name="shipping[postal_code]"
-                                    defaultValue={shipping.postal_code}
-                                    error={errors['shipping.postal_code']}
-                                    autoComplete="shipping postal-code"
-                                />
+                                {/* İl, ilçe ve posta kodu tek satırda. */}
+                                <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3">
+                                    <kit.LocationSelects
+                                        prefix="shipping"
+                                        cities={cities}
+                                        defaultCity={shipping.city}
+                                        defaultDistrict={shipping.district}
+                                        cityError={errors['shipping.city']}
+                                        districtError={
+                                            errors['shipping.district']
+                                        }
+                                    />
+                                    <kit.TextField
+                                        label={t('Posta Kodu')}
+                                        name="shipping[postal_code]"
+                                        defaultValue={shipping.postal_code}
+                                        error={errors['shipping.postal_code']}
+                                        autoComplete="shipping postal-code"
+                                    />
+                                </div>
                             </div>
                         </kit.Step>
-
-                        <kit.Step title={t('Fatura Bilgileri')} step={3}>
+                        <kit.Step
+                            title={t('Fatura Bilgileri')}
+                            step={3 + offset}
+                        >
                             <input
                                 type="hidden"
                                 name="billing_same_as_shipping"
@@ -672,25 +735,36 @@ export function CheckoutForm({
                                             className="sm:col-span-2"
                                             autoComplete="billing street-address"
                                         />
-                                        <kit.LocationSelects
-                                            prefix="billing"
-                                            cities={cities}
-                                            defaultCity={billing.city}
-                                            defaultDistrict={billing.district}
-                                            cityError={errors['billing.city']}
-                                            districtError={
-                                                errors['billing.district']
-                                            }
-                                        />
-                                        <kit.TextField
-                                            label={t('Posta Kodu')}
-                                            name="billing[postal_code]"
-                                            defaultValue={billing.postal_code}
-                                            error={
-                                                errors['billing.postal_code']
-                                            }
-                                            autoComplete="billing postal-code"
-                                        />
+                                        {/* İl, ilçe ve posta kodu tek satırda. */}
+                                        <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3">
+                                            <kit.LocationSelects
+                                                prefix="billing"
+                                                cities={cities}
+                                                defaultCity={billing.city}
+                                                defaultDistrict={
+                                                    billing.district
+                                                }
+                                                cityError={
+                                                    errors['billing.city']
+                                                }
+                                                districtError={
+                                                    errors['billing.district']
+                                                }
+                                            />
+                                            <kit.TextField
+                                                label={t('Posta Kodu')}
+                                                name="billing[postal_code]"
+                                                defaultValue={
+                                                    billing.postal_code
+                                                }
+                                                error={
+                                                    errors[
+                                                        'billing.postal_code'
+                                                    ]
+                                                }
+                                                autoComplete="billing postal-code"
+                                            />
+                                        </div>
                                     </>
                                 )}
                             </div>
@@ -712,13 +786,14 @@ export function CheckoutForm({
                                 </>
                             ) : null}
                         </kit.Step>
-
                         {!inSummary && carriers.length > 0 ? (
-                            <kit.Step title={t('Kargo Firması')} step={4}>
+                            <kit.Step
+                                title={t('Kargo Firması')}
+                                step={4 + offset}
+                            >
                                 {carrierPicker(errors)}
                             </kit.Step>
                         ) : null}
-
                         {inSummary ? (
                             <kit.Step title={t('Sipariş Notu')} step={lastStep}>
                                 {noteField(errors)}
