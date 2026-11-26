@@ -86,10 +86,10 @@ export type CheckoutKit = {
     CarrierLogo: ComponentType<{ carrier: CheckoutCarrier }>;
     linkClass: string;
     /**
-     * Ödeme yöntemi seçimi özet kartında (Sipariş Özeti ile sözleşmeler arasında)
-     * mı gösterilsin? Varsayılan: sol sütunda son adım.
+     * Kargo ve ödeme yöntemi seçimi sol sütunda adım olarak mı gösterilsin (eski
+     * düzen)? Varsayılan: ikisi de Sipariş Özeti kartında, toplamların yanında.
      */
-    methodsInSummary?: boolean;
+    choicesInMain?: boolean;
     /** Form ızgarası (ana sütun + özet). */
     gridClass: string;
     asideClass: string;

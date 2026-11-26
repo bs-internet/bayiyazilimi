@@ -1,6 +1,7 @@
 import { Form } from '@inertiajs/react';
 import { CreditCard, Landmark, Lock, Wallet } from 'lucide-react';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { ContractAgreementLabel } from '@/components/contract-agreement';
 import { abs, add, isNegative, isZero, percent } from '@/lib/decimal';
 import { formatMoney } from '@/lib/format';
@@ -14,6 +15,22 @@ type Props = Omit<CheckoutPageProps, 'quote' | 'context'> & {
 };
 
 const METHOD_ICONS = { landmark: Landmark, wallet: Wallet };
+
+/** Özet kartı içindeki bölüm (kargo, ödeme yöntemi). */
+function SummarySection({
+    title,
+    children,
+}: {
+    title: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="mt-5 border-t pt-4">
+            <h3 className="mb-2 text-sm font-bold">{title}</h3>
+            {children}
+        </div>
+    );
+}
 
 const defaultOf = (
     list: CheckoutSavedAddress[],
@@ -145,9 +162,56 @@ export function CheckoutForm({
         formatMoney(value, totals.currency || 'TRY');
     // Kartla ödeme gibi sağlayıcı sayfasına giden yöntemler "Ödemeye Geç" der.
     const paysNow = selected !== null && !(selected.icon in METHOD_ICONS);
-    const methodsInSummary = kit.methodsInSummary === true;
+    // Kargo ve ödeme seçimi varsayılan olarak özet kartında (seçim ile etkisi yan yana);
+    // kit isterse sol sütunda adım olarak (eski düzen).
+    const inSummary = kit.choicesInMain !== true;
 
-    // Ödeme yöntemi seçimi: sol sütunda son adım ya da (kit isterse) özet kartında.
+    const carrierPicker = (errors: Record<string, string>) => (
+        <>
+            <input type="hidden" name="carrier_id" value={carrierId} />
+            <div
+                className={
+                    inSummary ? 'grid gap-2' : 'grid gap-3 sm:grid-cols-2'
+                }
+            >
+                {carriers.map((c) => (
+                    <kit.Choice
+                        key={c.id}
+                        name="_carrier"
+                        checked={carrierId === c.id}
+                        onChange={() => setCarrierId(c.id)}
+                        card
+                    >
+                        <kit.CarrierLogo carrier={c} />
+                        <span className="min-w-0 flex-1">
+                            <span className="block font-bold">{c.name}</span>
+                            {c.delivery_days ? (
+                                <span className="block text-[11px] opacity-70">
+                                    {t('Tahmini :days iş günü', {
+                                        days: c.delivery_days,
+                                    })}
+                                </span>
+                            ) : null}
+                        </span>
+                        <span className="font-extrabold tabular-nums">
+                            {c.shipping_formatted}
+                        </span>
+                    </kit.Choice>
+                ))}
+            </div>
+            {totals.desi ? (
+                <kit.Note>
+                    {t('Sepet toplamı :desi desi üzerinden hesaplanmıştır.', {
+                        desi: totals.desi,
+                    })}
+                </kit.Note>
+            ) : null}
+            {errors.carrier_id ? (
+                <kit.Note tone="error">{errors.carrier_id}</kit.Note>
+            ) : null}
+        </>
+    );
+
     const methodPicker = (errors: Record<string, string>) => (
         <>
             {methods.length === 0 ? (
@@ -159,9 +223,7 @@ export function CheckoutForm({
             ) : (
                 <div
                     className={
-                        methodsInSummary
-                            ? 'grid gap-2'
-                            : 'grid gap-3 sm:grid-cols-2'
+                        inSummary ? 'grid gap-2' : 'grid gap-3 sm:grid-cols-2'
                     }
                 >
                     {methods.map((m) => {
@@ -210,7 +272,7 @@ export function CheckoutForm({
         />
     );
 
-    const lastStep = carriers.length > 0 ? 5 : 4;
+    const lastStep = !inSummary && carriers.length > 0 ? 5 : 4;
 
     return (
         <Form action={action} method="post" className={kit.gridClass}>
@@ -483,61 +545,13 @@ export function CheckoutForm({
                             ) : null}
                         </kit.Step>
 
-                        {carriers.length > 0 ? (
+                        {!inSummary && carriers.length > 0 ? (
                             <kit.Step title={t('Kargo Firması')} step={4}>
-                                <input
-                                    type="hidden"
-                                    name="carrier_id"
-                                    value={carrierId}
-                                />
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    {carriers.map((c) => (
-                                        <kit.Choice
-                                            key={c.id}
-                                            name="_carrier"
-                                            checked={carrierId === c.id}
-                                            onChange={() => setCarrierId(c.id)}
-                                            card
-                                        >
-                                            <kit.CarrierLogo carrier={c} />
-                                            <span className="flex-1">
-                                                <span className="block font-bold">
-                                                    {c.name}
-                                                </span>
-                                                {c.delivery_days ? (
-                                                    <span className="block text-[11px] opacity-70">
-                                                        {t(
-                                                            'Tahmini :days iş günü',
-                                                            {
-                                                                days: c.delivery_days,
-                                                            },
-                                                        )}
-                                                    </span>
-                                                ) : null}
-                                            </span>
-                                            <span className="font-extrabold tabular-nums">
-                                                {c.shipping_formatted}
-                                            </span>
-                                        </kit.Choice>
-                                    ))}
-                                </div>
-                                {totals.desi ? (
-                                    <kit.Note>
-                                        {t(
-                                            'Sepet toplamı :desi desi üzerinden hesaplanmıştır.',
-                                            { desi: totals.desi },
-                                        )}
-                                    </kit.Note>
-                                ) : null}
-                                {errors.carrier_id ? (
-                                    <kit.Note tone="error">
-                                        {errors.carrier_id}
-                                    </kit.Note>
-                                ) : null}
+                                {carrierPicker(errors)}
                             </kit.Step>
                         ) : null}
 
-                        {methodsInSummary ? (
+                        {inSummary ? (
                             <kit.Step title={t('Sipariş Notu')} step={lastStep}>
                                 {noteField(errors)}
                             </kit.Step>
@@ -552,9 +566,18 @@ export function CheckoutForm({
                         )}
                     </div>
 
-                    <aside className={kit.asideClass}>
+                    {/* Seçimler özetteyken kart uzar: ekrana yapışık (sticky) olursa onay
+                        düğmesi görünmez kalabilir, bu yüzden yapışık değildir. */}
+                    <aside className={inSummary ? 'min-w-0' : kit.asideClass}>
                         <kit.Summary>
                             <kit.SummaryLines lines={lines} />
+                            {inSummary && carriers.length > 0 ? (
+                                <div className="mb-4">
+                                    <SummarySection title={t('Kargo Firması')}>
+                                        {carrierPicker(errors)}
+                                    </SummarySection>
+                                </div>
+                            ) : null}
                             <kit.Totals
                                 totals={totals}
                                 carrier={carrier}
@@ -571,13 +594,10 @@ export function CheckoutForm({
                                     <strong>{money(payable)}</strong>
                                 </kit.Note>
                             ) : null}
-                            {methodsInSummary ? (
-                                <div className="mt-5">
-                                    <h3 className="mb-2 text-sm font-bold">
-                                        {t('Ödeme Yöntemi')}
-                                    </h3>
+                            {inSummary ? (
+                                <SummarySection title={t('Ödeme Yöntemi')}>
                                     {methodPicker(errors)}
-                                </div>
+                                </SummarySection>
                             ) : null}
                             <div className="mt-5 flex flex-col gap-3">
                                 {/* Her sözleşmenin ayrı onay kutusu vardır. */}
