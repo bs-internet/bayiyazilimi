@@ -78,7 +78,9 @@ export function CheckoutForm({
     const [billingAddressId, setBillingAddressId] = useState(() =>
         defaultOf(billingList, 'is_default_billing'),
     );
-    const [billingSame, setBillingSame] = useState(billingList.length === 0);
+    const [billingSame, setBillingSame] = useState(
+        prefill.billing_same ?? billingList.length === 0,
+    );
     // Ziyaretçinin "bu bilgilerle üye ol" seçimi.
     const [createAccount, setCreateAccount] = useState(false);
     const [saveAddress, setSaveAddress] = useState(
@@ -136,12 +138,16 @@ export function CheckoutForm({
           }
         : {
               ...prefill.billing,
-              tax_office: '',
-              tax_number: '',
-              identity_number: '',
+              tax_office: prefill.billing.tax_office ?? '',
+              tax_number: prefill.billing.tax_number ?? '',
+              identity_number: prefill.billing.identity_number ?? '',
           };
 
-    const [method, setMethod] = useState(methods[0]?.value ?? '');
+    const [method, setMethod] = useState(
+        methods.find((m) => m.value === prefill.payment_method)?.value ??
+            methods[0]?.value ??
+            '',
+    );
     // Seçili ödeme yöntemine bağlı kampanya varsa o sepet gösterilir.
     const view = methodTotals?.[method];
     const lines = view?.lines ?? baseLines;
@@ -172,7 +178,10 @@ export function CheckoutForm({
         };
     }, []);
     const [carrierId, setCarrierId] = useState(
-        carriers.find((c) => c.is_default)?.id ?? carriers[0]?.id ?? '',
+        carriers.find((c) => c.id === prefill.carrier_id)?.id ??
+            carriers.find((c) => c.is_default)?.id ??
+            carriers[0]?.id ??
+            '',
     );
 
     const carrier = carriers.find((c) => c.id === carrierId) ?? null;
@@ -355,6 +364,7 @@ export function CheckoutForm({
         <kit.TextAreaField
             label={t('Sipariş Notu')}
             name="customer_note"
+            defaultValue={prefill.customer_note}
             rows={2}
             error={errors.customer_note}
         />

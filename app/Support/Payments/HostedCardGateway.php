@@ -220,6 +220,7 @@ abstract class HostedCardGateway extends BaseGateway implements AcceptsBalancePa
     {
         if ($payment->status === PaymentStatus::Paid) {
             Basket::cart()->clear();
+            CardCheckout::forgetForm();
 
             return $order !== null
                 ? redirect()->to($order->customerUrl())->with('toast', ['type' => 'success', 'message' => __('Ödemeniz alındı. Sipariş numaranız: :number', ['number' => $order->number])])

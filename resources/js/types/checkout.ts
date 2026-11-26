@@ -67,6 +67,9 @@ export type CheckoutPrefill = {
         type: string;
         name: string;
         company: string;
+        tax_office?: string;
+        tax_number?: string;
+        identity_number?: string;
         address: string;
         city: string;
         district: string;
@@ -80,6 +83,11 @@ export type CheckoutPrefill = {
         district: string;
         postal_code: string;
     };
+    /** Kart ekranından ödeme formuna dönüşte son seçimler (yoksa varsayılanlar). */
+    billing_same?: boolean;
+    payment_method?: string;
+    carrier_id?: string;
+    customer_note?: string;
 };
 
 export type CheckoutPageProps = {

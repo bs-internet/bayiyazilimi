@@ -208,6 +208,10 @@ abstract class CheckoutController extends Controller
 
         self::rememberAddress($request, force: $newUser !== null);
 
+        if ($result instanceof Order) {
+            CardCheckout::forgetForm();
+        }
+
         return $result instanceof Payment
             ? redirect()->to(HostedCardGateway::payUrl($result))
             : self::redirectAfterPlaced($result, $this->placedUrl($result));
@@ -428,6 +432,42 @@ abstract class CheckoutController extends Controller
      * @return array<string, mixed>
      */
     public static function prefill(?User $user): array
+    {
+        $prefill = self::accountPrefill($user);
+        $form = CardCheckout::lastForm();
+
+        if ($form === null) {
+            return $prefill;
+        }
+
+        // Kart ekranından ödeme formuna dönen müşteri: son girdikleri (sözleşme onayları hariç).
+        $value = fn (array $from, string $key): string => is_scalar($from[$key] ?? null) ? (string) $from[$key] : '';
+        $billing = (array) ($form['billing'] ?? []);
+        $shipping = ($form['same_address'] ?? false) ? $billing : (array) ($form['shipping'] ?? []);
+        $location = ['address', 'city', 'district', 'postal_code'];
+
+        return [
+            'email' => $value($form, 'email') ?: $prefill['email'],
+            'phone' => $value($form, 'phone'),
+            'billing' => ['type' => $value($billing, 'type') ?: 'individual', ...array_combine(
+                ['name', 'company', 'tax_office', 'tax_number', 'identity_number', ...$location],
+                array_map(fn (string $key) => $value($billing, $key), ['name', 'company', 'tax_office', 'tax_number', 'identity_number', ...$location]),
+            )],
+            'shipping' => array_combine(
+                ['name', 'phone', ...$location],
+                array_map(fn (string $key) => $value($shipping, $key), ['name', 'phone', ...$location]),
+            ),
+            'billing_same' => collect($location)->every(fn (string $key) => $value($billing, $key) === $value($shipping, $key)),
+            'payment_method' => $value($form, 'payment_method'),
+            'carrier_id' => $value($form, 'carrier_id'),
+            'customer_note' => $value($form, 'customer_note'),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function accountPrefill(?User $user): array
     {
         $emptyShipping = ['name' => '', 'phone' => '', 'address' => '', 'city' => '', 'district' => '', 'postal_code' => ''];
         $empty = [

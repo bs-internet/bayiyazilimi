@@ -15,6 +15,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Shop\Basket;
+use App\Services\Shop\CardCheckout;
 use App\Services\Shop\OrderService;
 use App\Services\Shop\ShopSettings;
 use App\Services\Shop\StockService;
@@ -173,6 +174,25 @@ it('opens no order at checkout: the card screen shows what was entered and the o
     expect(Order::query()->withoutGlobalScopes()->count())->toBe(0);
 });
 
+it('fills the checkout form again with what was entered when the customer comes back from the card screen', function () {
+    ($this->startByCard)();
+
+    $prefill = CheckoutController::prefill(null);
+
+    expect($prefill['email'])->toBe('musteri@example.com')
+        ->and($prefill['billing']['company'])->toBe('Örnek Ltd.')
+        ->and($prefill['billing']['tax_number'])->toBe('1234567890')
+        ->and($prefill['shipping']['name'])->toBe('Mehmet Yılmaz')
+        ->and($prefill['shipping']['district'])->toBe('Osmangazi')
+        ->and($prefill['billing_same'])->toBeFalse()
+        ->and($prefill['payment_method'])->toBe(CardPreviewGateway::KEY)
+        ->and($prefill['customer_note'])->toBe('Kapıya bırakın');
+
+    // Ödeme alınıp sipariş açılınca form bilgileri silinir.
+    CardCheckout::forgetForm();
+
+    expect(CheckoutController::prefill(null)['email'])->toBe('');
+});
 it('never charges with the preview driver and never opens an order', function () {
     $payment = ($this->startByCard)();
 

@@ -26,6 +26,27 @@ use Illuminate\Support\Facades\Log;
  */
 class CardCheckout
 {
+    /** Kart ekranına geçerken ödeme formunda girilenler (oturumda; sipariş açılınca silinir). */
+    private const FORM_KEY = 'shop.checkout.form';
+
+    /**
+     * Ödeme formuna dönen müşterinin son girdiği bilgiler (yoksa null). Sözleşme onayları
+     * bilerek saklanmaz: her gönderimde yeniden işaretlenir.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function lastForm(): ?array
+    {
+        $data = session(self::FORM_KEY);
+
+        return is_array($data) ? $data : null;
+    }
+
+    public static function forgetForm(): void
+    {
+        session()->forget(self::FORM_KEY);
+    }
+
     public function __construct(
         private readonly OrderService $orders,
         private readonly CurrencyManager $currencies,
@@ -39,6 +60,9 @@ class CardCheckout
         $preview = $this->orders->previewFromCart($cart, $data, $user, $currency, $ip);
 
         unset($data['checkout_token'], $data['expected_total']);
+
+        // Müşteri kart ekranından ödeme formuna dönerse girdikleri yerinde durur.
+        session()->put(self::FORM_KEY, $data);
 
         return Payment::query()->withoutGlobalScopes()->create([
             'account_id' => $user?->account_id,
