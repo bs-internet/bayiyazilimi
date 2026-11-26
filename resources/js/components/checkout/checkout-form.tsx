@@ -1,5 +1,5 @@
 import { Form } from '@inertiajs/react';
-import { CreditCard, Landmark, Lock, Wallet } from 'lucide-react';
+import { ChevronDown, CreditCard, Landmark, Lock, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ContractAgreementLabel } from '@/components/contract-agreement';
@@ -135,6 +135,7 @@ export function CheckoutForm({
     const lines = view?.lines ?? baseLines;
     const totals = view?.totals ?? baseTotals;
     const carriers = view?.carriers ?? baseCarriers;
+    const [carriersOpen, setCarriersOpen] = useState(false);
     const [carrierId, setCarrierId] = useState(
         carriers.find((c) => c.is_default)?.id ?? carriers[0]?.id ?? '',
     );
@@ -166,46 +167,98 @@ export function CheckoutForm({
     // kit isterse sol sütunda adım olarak (eski düzen).
     const inSummary = kit.choicesInMain !== true;
 
+    const carrierChoices = (
+        <div className={inSummary ? 'grid gap-2' : 'grid gap-3 sm:grid-cols-2'}>
+            {carriers.map((c) => (
+                <kit.Choice
+                    key={c.id}
+                    name="_carrier"
+                    checked={carrierId === c.id}
+                    onChange={() => {
+                        setCarrierId(c.id);
+                        setCarriersOpen(false);
+                    }}
+                    card
+                >
+                    <kit.CarrierLogo carrier={c} />
+                    <span className="min-w-0 flex-1">
+                        <span className="block font-bold">{c.name}</span>
+                        {c.delivery_days ? (
+                            <span className="block text-[11px] opacity-70">
+                                {t('Tahmini :days iş günü', {
+                                    days: c.delivery_days,
+                                })}
+                            </span>
+                        ) : null}
+                    </span>
+                    <span className="font-extrabold tabular-nums">
+                        {c.shipping_formatted}
+                    </span>
+                </kit.Choice>
+            ))}
+        </div>
+    );
+
+    // Özette: seçili firma ve ücreti tek satır; başka firma varsa açılır listeden seçilir.
+    // Eski düzende tüm firmalar kart olarak listelenir.
     const carrierPicker = (errors: Record<string, string>) => (
         <>
             <input type="hidden" name="carrier_id" value={carrierId} />
-            <div
-                className={
-                    inSummary ? 'grid gap-2' : 'grid gap-3 sm:grid-cols-2'
-                }
-            >
-                {carriers.map((c) => (
-                    <kit.Choice
-                        key={c.id}
-                        name="_carrier"
-                        checked={carrierId === c.id}
-                        onChange={() => setCarrierId(c.id)}
-                        card
-                    >
-                        <kit.CarrierLogo carrier={c} />
-                        <span className="min-w-0 flex-1">
-                            <span className="block font-bold">{c.name}</span>
-                            {c.delivery_days ? (
-                                <span className="block text-[11px] opacity-70">
-                                    {t('Tahmini :days iş günü', {
-                                        days: c.delivery_days,
-                                    })}
-                                </span>
+            {inSummary ? (
+                <>
+                    {carrier ? (
+                        <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                            <span className="min-w-0 font-semibold">
+                                {carrier.name}
+                                {carrier.delivery_days ? (
+                                    <span className="ml-1 text-[11px] font-normal opacity-70">
+                                        {t('(tahmini :days iş günü)', {
+                                            days: carrier.delivery_days,
+                                        })}
+                                    </span>
+                                ) : null}
+                            </span>
+                            <span className="shrink-0 font-extrabold tabular-nums">
+                                {carrier.shipping_formatted}
+                            </span>
+                        </div>
+                    ) : null}
+                    {carriers.length > 1 ? (
+                        <>
+                            <button
+                                type="button"
+                                aria-expanded={carriersOpen}
+                                onClick={() => setCarriersOpen((o) => !o)}
+                                className={`mt-1.5 inline-flex cursor-pointer items-center gap-1 text-[13px] ${kit.linkClass}`}
+                            >
+                                {carriersOpen
+                                    ? t('Kargo seçeneklerini gizle')
+                                    : t('Diğer kargo seçenekleri (:count)', {
+                                          count: carriers.length - 1,
+                                      })}
+                                <ChevronDown
+                                    className={`size-3.5 transition-transform ${carriersOpen ? 'rotate-180' : ''}`}
+                                />
+                            </button>
+                            {carriersOpen ? (
+                                <div className="mt-2">{carrierChoices}</div>
                             ) : null}
-                        </span>
-                        <span className="font-extrabold tabular-nums">
-                            {c.shipping_formatted}
-                        </span>
-                    </kit.Choice>
-                ))}
-            </div>
-            {totals.desi ? (
-                <kit.Note>
-                    {t('Sepet toplamı :desi desi üzerinden hesaplanmıştır.', {
-                        desi: totals.desi,
-                    })}
-                </kit.Note>
-            ) : null}
+                        </>
+                    ) : null}
+                </>
+            ) : (
+                <>
+                    {carrierChoices}
+                    {totals.desi ? (
+                        <kit.Note>
+                            {t(
+                                'Sepet toplamı :desi desi üzerinden hesaplanmıştır.',
+                                { desi: totals.desi },
+                            )}
+                        </kit.Note>
+                    ) : null}
+                </>
+            )}
             {errors.carrier_id ? (
                 <kit.Note tone="error">{errors.carrier_id}</kit.Note>
             ) : null}
@@ -566,9 +619,16 @@ export function CheckoutForm({
                         )}
                     </div>
 
-                    {/* Seçimler özetteyken kart uzar: ekrana yapışık (sticky) olursa onay
-                        düğmesi görünmez kalabilir, bu yüzden yapışık değildir. */}
-                    <aside className={inSummary ? 'min-w-0' : kit.asideClass}>
+                    {/* Özet ekrana yapışıktır (kit.asideClass). Seçimler özetteyken kart
+                        ekrandan uzun olabilir: onay düğmesi görünmez kalmasın diye kendi
+                        içinde kayar. */}
+                    <aside
+                        className={
+                            inSummary
+                                ? `min-w-0 ${kit.asideClass} lg:max-h-[calc(100dvh-11rem)] lg:overflow-y-auto`
+                                : kit.asideClass
+                        }
+                    >
                         <kit.Summary>
                             <kit.SummaryLines lines={lines} />
                             {inSummary && carriers.length > 0 ? (

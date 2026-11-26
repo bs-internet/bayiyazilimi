@@ -30,6 +30,12 @@ export default defineConfig({
                             name: 'react',
                             test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,
                         },
+                        // Inertia da tek parçada: iki kopya iki ayrı sayfa bağlamı (usePage)
+                        // demektir; mağaza düzeni boş bağlamla beyaz sayfa verir.
+                        {
+                            name: 'inertia',
+                            test: /[\\/]node_modules[\\/]@inertiajs[\\/]/,
+                        },
                     ],
                 },
             },
