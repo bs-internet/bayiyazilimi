@@ -121,6 +121,9 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(fn (Request $request): bool => $request->is('api/*') || $request->expectsJson());
         $exceptions->render(fn (Throwable $e, Request $request) => ApiExceptionRenderer::render($e, $request));
 
+        // Kart ekranının alanları doğrulama hatasında oturuma (eski girdi) yazılmaz.
+        $exceptions->dontFlash(['card_number', 'card_cvv', 'card_holder', 'card_month', 'card_year', 'card_expiry']);
+
         // Raporlanan hata günlüğe yazılır; canlıda yöneticilere ayrıca bildirilir (ErrorAlerts).
         $exceptions->report(fn (Throwable $e) => ErrorAlerts::capture($e));
     })->create();

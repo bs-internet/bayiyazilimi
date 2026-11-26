@@ -67,7 +67,7 @@ class ShopSettings
     /**
      * Tanımlamalar › Satış Ayarları.
      */
-    public const SALES_KEYS = ['price_display', 'dealer_price_display', 'quote_valid_days', 'return_days', 'order_notification_email'];
+    public const SALES_KEYS = ['price_display', 'dealer_price_display', 'quote_valid_days', 'return_days', 'order_notification_email', 'card_preview_enabled'];
 
     /**
      * Anahtar => varsayılan değer (çekirdek). Modüller kendi anahtarlarını
@@ -105,6 +105,8 @@ class ShopSettings
         'bank_transfer_discount_rate' => '0',
         // Yönteme göre en düşük sipariş tutarı (ana para biriminde), JSON: {"bank_transfer": 500}.
         'payment_min_amounts' => '{}',
+        // Kart ekranı önizlemesi (Satış Ayarları): sanal pos bağlanmadan kartla ödeme akışını gösterir, ödeme almaz.
+        'card_preview_enabled' => '0',
 
         // Cari: çek / senet portföyü isteğe bağlıdır (varsayılan kapalı; kapalıyken ekranlarda yer almaz).
         'cheques_enabled' => '0',

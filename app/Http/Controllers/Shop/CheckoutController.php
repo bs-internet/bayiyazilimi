@@ -24,6 +24,7 @@ use App\Services\Shop\CurrencyManager;
 use App\Services\Shop\OrderService;
 use App\Services\Shop\ShippingService;
 use App\Support\Money;
+use App\Support\Payments\CardFormGateway;
 use App\Support\Payments\PaymentContext;
 use App\Support\Payments\PaymentGateway;
 use App\Support\Payments\PaymentRegistry;
@@ -278,8 +279,8 @@ abstract class CheckoutController extends Controller
             'icon' => $g->icon(),
             'adjustment_rate' => Money::round($g->adjustmentRate($context)),
             'adjustment_label' => $g->adjustmentLabel($context),
-            // Taksit tablosu (kart sağlayıcıları): ödeme ekranında bilgi amaçlı.
-            'installments_url' => $g instanceof ProvidesInstallments ? route('shop.payment.installments', $g->key()) : null,
+            // Taksit tablosu (kart sağlayıcıları): ödeme ekranında bilgi amaçlı; tek çekim kart ekranında yok.
+            'installments_url' => $g instanceof ProvidesInstallments && ! ($g instanceof CardFormGateway && $g->maxInstallment() <= 1) ? route('shop.payment.installments', $g->key()) : null,
         ], app(PaymentRegistry::class)->available($context)));
     }
 

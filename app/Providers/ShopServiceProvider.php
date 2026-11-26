@@ -13,6 +13,7 @@ use App\Services\Shop\CurrencyManager;
 use App\Services\Shop\PriceCalculator;
 use App\Support\Money;
 use App\Support\Payments\Gateways\BankTransferGateway;
+use App\Support\Payments\Gateways\CardPreviewGateway;
 use App\Support\Payments\Gateways\OnAccountGateway;
 use App\Support\Payments\PaymentRegistry;
 use App\Support\Shop\Campaigns\Actions;
@@ -99,6 +100,8 @@ final class ShopServiceProvider extends ServiceProvider
         hooks()->action('shop.payment.methods.register', function (PaymentRegistry $payments): void {
             $payments->add(new BankTransferGateway);
             $payments->add(new OnAccountGateway);
+            // Kart ekranı önizlemesi (Satış Ayarları; varsayılan kapalı, ödeme almaz).
+            $payments->add(new CardPreviewGateway);
         }, 1);
 
         hooks()->action('panel.menu.register', ShopMenu::panel(...));

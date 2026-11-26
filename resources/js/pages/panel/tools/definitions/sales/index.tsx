@@ -2,7 +2,11 @@ import { Form, Head } from '@inertiajs/react';
 import { Save } from 'lucide-react';
 
 import { Page, PageTitle, SectionCard } from '@/components/admin/page';
-import { SelectField, TextField } from '@/components/shop/form-fields';
+import {
+    SelectField,
+    SwitchField,
+    TextField,
+} from '@/components/shop/form-fields';
 import { Button } from '@/components/ui/button';
 import { FieldGroup } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
@@ -115,6 +119,19 @@ export default function SalesSettings({ settings: s, storefront }: Props) {
                                         )}
                                     />
                                 </FieldGroup>
+                            </SectionCard>
+
+                            <SectionCard title={t('Kartla ödeme')}>
+                                <SwitchField
+                                    name="card_preview_enabled"
+                                    label={t('Kart ekranı önizlemesi')}
+                                    defaultChecked={
+                                        s.card_preview_enabled === '1'
+                                    }
+                                    description={t(
+                                        'Sanal pos bağlanmadan önce kartla ödeme akışını (ödeme sayfası → kart ekranı) gösterir. Ödeme almaz: müşteri "Ödeme Yap"a basınca uyarı görür, sipariş ödeme bekler ve süresi dolunca kapanır. Sanal pos kurulunca kapatın.',
+                                    )}
+                                />
                             </SectionCard>
 
                             <div className="flex justify-end">

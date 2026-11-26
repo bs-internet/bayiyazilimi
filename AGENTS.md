@@ -179,6 +179,11 @@ bağlanan modele güvenilmez). `status` başka yerde yazılmaz.
   ödeme cariye alacak yazılır, sipariş açılmaz, `UnappliedPaymentReceivedEvent` yöneticilere bildirir.
   Ödemesi başarısız olan teklif siparişinin teklifi yeniden ödenebilir hale gelir. Kart sürücüsü
   `ReconcilesPayments` uygularsa süre aşımı komutu ödemeyi başarısız saymadan önce sağlayıcıya sorar.
+- **Kart ekranı** — kart bilgisini mağazanın kendi sayfasında alan sürücüler `CardFormGateway`'i genişletir:
+  ödeme formu → sipariş "ödeme bekliyor" → imzalı `/odeme/kart/{ref}` (girilen bilgiler, siparişin son hali,
+  kart formu; `shop/payment/card`, tema değiştirebilir; bayi `app/shop/payment/card`) → "Ödeme Yap" düz form
+  POST'u → `charge()` (3D'ye götürür). Kart bilgisi saklanmaz, oturuma yazılmaz (`dontFlash`). Sanal pos
+  yokken akışı göstermek için `CardPreviewGateway` (Satış Ayarları › Kart ekranı önizlemesi; ödeme almaz).
 - **İade (kart)** — `payment_refunds`: pending → succeeded / failed. Satır sağlayıcı çağrısından
   **önce** yazılır; sonuç alınamazsa pending kalır ve tutarı ayırmaya devam eder (çift iade olmaz).
   `PaymentRefundService::STALE_AFTER_MINUTES` sonra yönetici siparişin Ödemeler kartından
@@ -330,6 +335,7 @@ Başlıca kancalar:
 | `{area}.menu.register` | [MenuRegistry](app/Support/Registry/MenuRegistry.php) — menü (yetkiye göre süzülür) |
 | `{area}.permissions.register` | [PermissionRegistry](app/Support/Registry/PermissionRegistry.php) — `source` = eklenti anahtarı |
 | `shop.payment.methods.register` | Ödeme yöntemi (`PaymentRegistry`) |
+| `shop.payment.page_middleware` | Kart ekranı rotasına ara katman (vitrin: mağaza düzeni verisi) |
 | `shop.settings.defaults` | Ayar varsayılanları |
 | `shop.settings.secret_keys` | Gizli ayar anahtarları (şifreli saklanır, toplu ayar dizisine girmez) |
 | `api.abilities` | API yetenekleri |

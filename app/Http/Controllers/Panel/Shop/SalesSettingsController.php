@@ -15,8 +15,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Tanımlamalar › Satış Ayarları: fiyat gösterimi, teklif geçerlilik ve iade süreleri
- * (ShopSettings::SALES_KEYS).
+ * Tanımlamalar › Satış Ayarları: fiyat gösterimi, teklif geçerlilik ve iade süreleri,
+ * kart ekranı önizlemesi (ShopSettings::SALES_KEYS).
  */
 class SalesSettingsController extends Controller
 {
@@ -40,13 +40,19 @@ class SalesSettingsController extends Controller
             'quote_valid_days' => ['required', 'integer', 'min:1', 'max:365'],
             'return_days' => ['required', 'integer', 'min:0', 'max:365'],
             'order_notification_email' => ['nullable', 'email', 'max:255'],
+            'card_preview_enabled' => ['sometimes', 'boolean'],
         ], [], [
             'order_notification_email' => __('bildirim e-postası'),
             'price_display' => __('fiyat gösterimi'),
             'dealer_price_display' => __('bayi fiyat gösterimi'),
             'quote_valid_days' => __('teklif geçerlilik süresi'),
             'return_days' => __('iade talebi süresi'),
+            'card_preview_enabled' => __('kart ekranı önizlemesi'),
         ]);
+
+        if (array_key_exists('card_preview_enabled', $data)) {
+            $data['card_preview_enabled'] = (bool) $data['card_preview_enabled'];
+        }
 
         ShopSettings::save($data);
 

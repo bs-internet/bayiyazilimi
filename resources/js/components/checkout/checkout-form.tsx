@@ -145,6 +145,72 @@ export function CheckoutForm({
         formatMoney(value, totals.currency || 'TRY');
     // Kartla ödeme gibi sağlayıcı sayfasına giden yöntemler "Ödemeye Geç" der.
     const paysNow = selected !== null && !(selected.icon in METHOD_ICONS);
+    const methodsInSummary = kit.methodsInSummary === true;
+
+    // Ödeme yöntemi seçimi: sol sütunda son adım ya da (kit isterse) özet kartında.
+    const methodPicker = (errors: Record<string, string>) => (
+        <>
+            {methods.length === 0 ? (
+                <kit.Note tone="error">
+                    {t(
+                        'Şu anda kullanılabilir ödeme yöntemi yok. Lütfen bizimle iletişime geçin.',
+                    )}
+                </kit.Note>
+            ) : (
+                <div
+                    className={
+                        methodsInSummary
+                            ? 'grid gap-2'
+                            : 'grid gap-3 sm:grid-cols-2'
+                    }
+                >
+                    {methods.map((m) => {
+                        const Icon =
+                            METHOD_ICONS[m.icon as keyof typeof METHOD_ICONS] ??
+                            CreditCard;
+
+                        return (
+                            <kit.Choice
+                                key={m.value}
+                                name="payment_method"
+                                value={m.value}
+                                checked={method === m.value}
+                                onChange={() => setMethod(m.value)}
+                                card
+                            >
+                                <Icon className="size-5 text-primary" />
+                                <span className="font-semibold">{m.label}</span>
+                            </kit.Choice>
+                        );
+                    })}
+                </div>
+            )}
+            {errors.payment_method ? (
+                <kit.Note tone="error">{errors.payment_method}</kit.Note>
+            ) : null}
+            {selected?.description ? (
+                <kit.Note>{selected.description}</kit.Note>
+            ) : null}
+            {selected?.installments_url ? (
+                <InstallmentTable
+                    url={selected.installments_url}
+                    amount={payable}
+                    currency={totals.currency || 'TRY'}
+                />
+            ) : null}
+        </>
+    );
+
+    const noteField = (errors: Record<string, string>) => (
+        <kit.TextAreaField
+            label={t('Sipariş Notu')}
+            name="customer_note"
+            rows={2}
+            error={errors.customer_note}
+        />
+    );
+
+    const lastStep = carriers.length > 0 ? 5 : 4;
 
     return (
         <Form action={action} method="post" className={kit.gridClass}>
@@ -471,68 +537,19 @@ export function CheckoutForm({
                             </kit.Step>
                         ) : null}
 
-                        <kit.Step
-                            title={t('Ödeme Yöntemi')}
-                            step={carriers.length > 0 ? 5 : 4}
-                        >
-                            {methods.length === 0 ? (
-                                <kit.Note tone="error">
-                                    {t(
-                                        'Şu anda kullanılabilir ödeme yöntemi yok. Lütfen bizimle iletişime geçin.',
-                                    )}
-                                </kit.Note>
-                            ) : (
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    {methods.map((m) => {
-                                        const Icon =
-                                            METHOD_ICONS[
-                                                m.icon as keyof typeof METHOD_ICONS
-                                            ] ?? CreditCard;
-
-                                        return (
-                                            <kit.Choice
-                                                key={m.value}
-                                                name="payment_method"
-                                                value={m.value}
-                                                checked={method === m.value}
-                                                onChange={() =>
-                                                    setMethod(m.value)
-                                                }
-                                                card
-                                            >
-                                                <Icon className="size-5 text-primary" />
-                                                <span className="font-semibold">
-                                                    {m.label}
-                                                </span>
-                                            </kit.Choice>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                            {errors.payment_method ? (
-                                <kit.Note tone="error">
-                                    {errors.payment_method}
-                                </kit.Note>
-                            ) : null}
-                            {selected?.description ? (
-                                <kit.Note>{selected.description}</kit.Note>
-                            ) : null}
-                            {selected?.installments_url ? (
-                                <InstallmentTable
-                                    url={selected.installments_url}
-                                    amount={payable}
-                                    currency={totals.currency || 'TRY'}
-                                />
-                            ) : null}
-                            <div className="mt-4">
-                                <kit.TextAreaField
-                                    label={t('Sipariş Notu')}
-                                    name="customer_note"
-                                    rows={2}
-                                    error={errors.customer_note}
-                                />
-                            </div>
-                        </kit.Step>
+                        {methodsInSummary ? (
+                            <kit.Step title={t('Sipariş Notu')} step={lastStep}>
+                                {noteField(errors)}
+                            </kit.Step>
+                        ) : (
+                            <kit.Step
+                                title={t('Ödeme Yöntemi')}
+                                step={lastStep}
+                            >
+                                {methodPicker(errors)}
+                                <div className="mt-4">{noteField(errors)}</div>
+                            </kit.Step>
+                        )}
                     </div>
 
                     <aside className={kit.asideClass}>
@@ -553,6 +570,14 @@ export function CheckoutForm({
                                     {t('Ödenecek tutar:')}{' '}
                                     <strong>{money(payable)}</strong>
                                 </kit.Note>
+                            ) : null}
+                            {methodsInSummary ? (
+                                <div className="mt-5">
+                                    <h3 className="mb-2 text-sm font-bold">
+                                        {t('Ödeme Yöntemi')}
+                                    </h3>
+                                    {methodPicker(errors)}
+                                </div>
                             ) : null}
                             <div className="mt-5 flex flex-col gap-3">
                                 {/* Her sözleşmenin ayrı onay kutusu vardır. */}

@@ -7,9 +7,11 @@ namespace App\Http\Controllers\Shop;
 use App\Enums\Shop\OrderStatus;
 use App\Enums\Shop\PaymentStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Shop\ChargeCardRequest;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Support\Money;
+use App\Support\Payments\CardFormGateway;
 use App\Support\Payments\HandlesCallbacks;
 use App\Support\Payments\HostedCardGateway;
 use App\Support\Payments\PaymentRegistry;
@@ -46,6 +48,29 @@ class PaymentCallbackController extends Controller
 
         abort_unless($driver instanceof HostedCardGateway, 404);
 
+        return $this->closed($payment) ?? $driver->renderPayment($payment, $request);
+    }
+
+    /**
+     * Mağazanın kart ekranından "Ödeme Yap": kart bilgisi doğrulanır ve sürücüye verilir
+     * (sağlayıcıya iletir, 3D doğrulamaya götürür). Kart bilgisi saklanmaz.
+     */
+    public function charge(ChargeCardRequest $request, string $reference, PaymentRegistry $payments): Response
+    {
+        $payment = Payment::query()->withoutGlobalScopes()->where('merchant_oid', $reference)->firstOrFail();
+        $driver = $payments->get($payment->method);
+
+        abort_unless($driver instanceof CardFormGateway, 404);
+
+        return $this->closed($payment) ?? $driver->charge($payment, $request->card(min(12, max(1, $driver->maxInstallment()))), $request);
+    }
+
+    /**
+     * Sonuçlanmış ödeme ya da iptal edilmiş sipariş için müşteriyi geri gönderir;
+     * ödeme alınabilecekse null.
+     */
+    private function closed(Payment $payment): ?Response
+    {
         $order = $payment->order_id !== null ? Order::query()->withoutGlobalScopes()->find($payment->order_id) : null;
         $target = $payment->order_id !== null ? ($order?->customerUrl() ?? route('home')) : route('app.shop.payments.index');
 
@@ -58,7 +83,7 @@ class PaymentCallbackController extends Controller
             return redirect()->to($target)->with('toast', ['type' => 'warning', 'message' => __('Bu sipariş iptal edildi; ödeme alınmadı.')]);
         }
 
-        return $driver->renderPayment($payment, $request);
+        return null;
     }
 
     /**
