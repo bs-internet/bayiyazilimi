@@ -55,6 +55,9 @@ beforeEach(function () {
     BankAccount::query()->create(['bank_name' => 'Test Bankası', 'account_holder' => 'Örnek A.Ş.', 'iban' => 'TR120006400000112345678901', 'status' => 'active']);
     Contract::query()->whereIn('slug', ['satis-sozlesmesi', 'uyelik-sozlesmesi', 'kvkk-aydinlatma-metni'])->update(['status' => Status::Active->value]);
 
+    // Ziyaretçi ödemesi vitrinle gelir; vitrinsiz çekirdekte site ziyaretçiye açılır.
+    hooks()->filter('site.public_access', fn () => true);
+
     Route::middleware('web')->post('/_test/odeme', [GuestCheckoutTestController::class, 'store']);
 
     $try = Currency::query()->where('code', 'TRY')->first();
