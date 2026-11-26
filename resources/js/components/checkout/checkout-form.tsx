@@ -1,6 +1,6 @@
 import { Form } from '@inertiajs/react';
 import { ChevronDown, CreditCard, Landmark, Lock, Wallet } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ContractAgreementLabel } from '@/components/contract-agreement';
 import { abs, add, isNegative, isZero, percent } from '@/lib/decimal';
@@ -136,6 +136,29 @@ export function CheckoutForm({
     const totals = view?.totals ?? baseTotals;
     const carriers = view?.carriers ?? baseCarriers;
     const [carriersOpen, setCarriersOpen] = useState(false);
+    // Özet kartı ekrana sığıyor mu (üst menü payı ~180px)? Sığmıyorsa alttan yapışır.
+    const asideRef = useRef<HTMLElement>(null);
+    const [asideTall, setAsideTall] = useState(false);
+
+    useEffect(() => {
+        const el = asideRef.current;
+
+        if (!el) {
+            return;
+        }
+
+        const check = () =>
+            setAsideTall(el.offsetHeight > window.innerHeight - 180);
+        const observer = new ResizeObserver(check);
+        observer.observe(el);
+        window.addEventListener('resize', check);
+        check();
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('resize', check);
+        };
+    }, []);
     const [carrierId, setCarrierId] = useState(
         carriers.find((c) => c.is_default)?.id ?? carriers[0]?.id ?? '',
     );
@@ -619,14 +642,15 @@ export function CheckoutForm({
                         )}
                     </div>
 
-                    {/* Özet ekrana yapışıktır (kit.asideClass). Seçimler özetteyken kart
-                        ekrandan uzun olabilir: onay düğmesi görünmez kalmasın diye kendi
-                        içinde kayar. */}
+                    {/* Özet ekrana yapışıktır (kit.asideClass, üstten). Ekrandan uzunsa
+                        alttan yapışır: sayfa kaydıkça onay düğmesi ekranın altında kalır,
+                        özetin içinde ayrı kaydırma çubuğu olmaz. */}
                     <aside
+                        ref={asideRef}
                         className={
-                            inSummary
-                                ? `min-w-0 ${kit.asideClass} lg:max-h-[calc(100dvh-11rem)] lg:overflow-y-auto`
-                                : kit.asideClass
+                            inSummary && asideTall
+                                ? 'min-w-0 lg:sticky lg:bottom-4 lg:self-end'
+                                : `min-w-0 ${kit.asideClass}`
                         }
                     >
                         <kit.Summary>
