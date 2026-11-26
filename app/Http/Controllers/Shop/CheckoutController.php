@@ -18,6 +18,7 @@ use App\Models\Currency;
 use App\Models\CustomerAddress;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\Account\AccountProvisioner;
 use App\Services\Shop\AddressService;
 use App\Services\Shop\Basket;
 use App\Services\Shop\CurrencyManager;
@@ -32,12 +33,17 @@ use App\Support\Payments\ProvidesInstallments;
 use App\Support\RegionOptions;
 use Brick\Math\BigDecimal;
 use Brick\Math\BigNumber;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Laravel\Fortify\Contracts\CreatesNewUsers;
+use Laravel\Fortify\Features;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
@@ -119,7 +125,31 @@ abstract class CheckoutController extends Controller
             'quote' => null,
             'context' => $context,
             'contracts' => self::contracts(),
+            'guestAccount' => self::guestAccountProps($request->user()),
             ...self::addressProps($request->user()),
+        ];
+    }
+
+    /**
+     * Ziyaretçiye ödeme formunda giriş bağlantısı ve "bu bilgilerle üye ol" seçeneği
+     * (üyelik açıksa). Üyelik sözleşmelerinden ödeme formunda zaten onaylatılanlar çıkarılır.
+     *
+     * @return array{login_url: string, contracts: array<int, array{title: string, slug: string, content: string}>}|null
+     */
+    public static function guestAccountProps(?User $user): ?array
+    {
+        if ($user !== null || ! Features::enabled(Features::registration())) {
+            return null;
+        }
+
+        $checkout = array_keys(Contract::titlesForForm(Contract::CHECKOUT));
+
+        return [
+            'login_url' => route('shop.checkout-login'),
+            'contracts' => array_values(array_filter(
+                Contract::forForm(Contract::REGISTRATION),
+                fn (array $c) => ! in_array($c['slug'], $checkout, true),
+            )),
         ];
     }
 
@@ -150,17 +180,52 @@ abstract class CheckoutController extends Controller
     {
         self::ensureMethodAvailable($request->input('payment_method'), $request->user());
 
-        $order = $orders->placeFromCart(
-            Basket::cart(),
-            $request->orderData(),
-            $request->user(),
-            $currencies->current(),
-            $request->ip(),
-        );
+        // Ziyaretçi "bu bilgilerle üye ol" dediyse üyelik ve sipariş birlikte: sipariş
+        // verilemezse üyelik de açılmaz.
+        $newUser = null;
+        $order = DB::transaction(function () use ($request, $orders, $currencies, &$newUser): Order {
+            $newUser = $request->wantsAccount() ? self::registerFromCheckout($request) : null;
 
-        self::rememberAddress($request);
+            return $orders->placeFromCart(
+                Basket::cart(),
+                $request->orderData(),
+                $newUser ?? $request->user(),
+                $currencies->current(),
+                $request->ip(),
+            );
+        });
+
+        if ($newUser !== null) {
+            // Fortify kaydıyla aynı: doğrulama e-postası (Registered → listener) ve oturum.
+            event(new Registered($newUser));
+            Auth::guard('web')->login($newUser);
+            $request->session()->regenerate();
+        }
+
+        self::rememberAddress($request, force: $newUser !== null);
 
         return self::redirectAfterPlaced($order, $this->placedUrl($order));
+    }
+
+    /**
+     * Ödeme formundaki bilgilerle üyelik: Fortify'ın kayıt işlemi (aynı kurallar, sözleşme
+     * onayları, "Kısıtlı" durum) ve hemen açılan hesap (sipariş hesaba yazılsın, Hesabım'da görünsün).
+     */
+    private static function registerFromCheckout(CheckoutRequest $request): User
+    {
+        $user = app(CreatesNewUsers::class)->create([
+            'name' => (string) $request->input('billing.name'),
+            'email' => mb_strtolower((string) $request->input('email')),
+            'password' => (string) $request->input('password'),
+            'password_confirmation' => (string) $request->input('password_confirmation'),
+            // Ödeme formunda onaylanan sözleşmeler üyelikte de geçerlidir (ör. KVKK iki formda).
+            'agreements' => [...(array) $request->input('agreements', []), ...(array) $request->input('account_agreements', [])],
+            'marketing_consent' => $request->boolean('marketing_consent'),
+        ]);
+
+        app(AccountProvisioner::class)->ensureForUser($user);
+
+        return $user->refresh();
     }
 
     /**
@@ -195,11 +260,12 @@ abstract class CheckoutController extends Controller
      * Üye "adreslerime kaydet" dediyse teslimat adresini teslimat, fatura adresini
      * fatura türünde (iki ayrı kayıt) Adreslerim'e ekler.
      */
-    public static function rememberAddress(CheckoutRequest $request): void
+    public static function rememberAddress(CheckoutRequest $request, bool $force = false): void
     {
         $user = $request->user();
 
-        if (! $request->boolean('save_address') || $user === null || $user->user_type !== UserType::Member) {
+        // Ödemede üye olan ziyaretçinin adresleri her zaman kaydedilir ($force).
+        if ((! $force && ! $request->boolean('save_address')) || $user === null || $user->user_type !== UserType::Member) {
             return;
         }
 

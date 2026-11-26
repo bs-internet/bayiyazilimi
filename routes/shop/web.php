@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Shop\CheckoutLoginController;
 use App\Http\Controllers\Shop\PaymentCallbackController;
 use Illuminate\Support\Facades\Route;
 
@@ -11,6 +12,9 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | CSRF dışı (bootstrap/app.php) ve site erişim kapısı dışı (SiteAccessGate).
 */
+
+// Ödeme formundaki "Üye misiniz? Giriş yapın": girişten sonra ödeme sayfasına döner.
+Route::get('odeme-giris', CheckoutLoginController::class)->middleware('guest')->name('shop.checkout-login');
 
 Route::controller(PaymentCallbackController::class)->prefix('odeme')->name('shop.payment.')->group(function () {
     Route::match(['get', 'post'], 'bildirim/{gateway}', 'notify')->middleware('throttle:120,1')->name('notify');

@@ -58,6 +58,7 @@ export function CheckoutForm({
     cities,
     savedAddresses,
     canSaveAddress,
+    guestAccount,
 }: Props) {
     const shippingList = savedAddresses.filter((a) => a.type === 'shipping');
     const billingList = savedAddresses.filter((a) => a.type === 'billing');
@@ -69,6 +70,8 @@ export function CheckoutForm({
         defaultOf(billingList, 'is_default_billing'),
     );
     const [billingSame, setBillingSame] = useState(billingList.length === 0);
+    // Ziyaretçinin "bu bilgilerle üye ol" seçimi.
+    const [createAccount, setCreateAccount] = useState(false);
     const [saveAddress, setSaveAddress] = useState(
         canSaveAddress && savedAddresses.length === 0,
     );
@@ -369,6 +372,23 @@ export function CheckoutForm({
                     />
                     <div className="flex min-w-0 flex-col gap-5">
                         <kit.Step title={t('İletişim Bilgileri')} step={1}>
+                            {guestAccount ? (
+                                <p className="mb-4 text-[13px]">
+                                    {t('Üye misiniz?')}{' '}
+                                    <a
+                                        href={guestAccount.login_url}
+                                        className={kit.linkClass}
+                                    >
+                                        {t('Giriş yapın')}
+                                    </a>
+                                    <span className="opacity-70">
+                                        {' · '}
+                                        {t(
+                                            'Sepetiniz korunur, kayıtlı adreslerinizi seçebilirsiniz.',
+                                        )}
+                                    </span>
+                                </p>
+                            ) : null}
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <kit.TextField
                                     label={t('E-posta')}
@@ -390,6 +410,78 @@ export function CheckoutForm({
                                     placeholder={t('05xx xxx xx xx')}
                                 />
                             </div>
+                            {guestAccount ? (
+                                <>
+                                    <kit.Divider />
+                                    <input
+                                        type="hidden"
+                                        name="create_account"
+                                        value={createAccount ? '1' : '0'}
+                                    />
+                                    <kit.CheckField
+                                        label={t(
+                                            "Bu bilgilerle üye olmak istiyorum (siparişlerinizi Hesabım'dan izlersiniz)",
+                                        )}
+                                        checked={createAccount}
+                                        onCheckedChange={setCreateAccount}
+                                    />
+                                    {createAccount ? (
+                                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                            <kit.TextField
+                                                label={t('Şifre')}
+                                                type="password"
+                                                name="password"
+                                                required
+                                                autoComplete="new-password"
+                                                error={errors.password}
+                                            />
+                                            <kit.TextField
+                                                label={t('Şifre (tekrar)')}
+                                                type="password"
+                                                name="password_confirmation"
+                                                required
+                                                autoComplete="new-password"
+                                            />
+                                            {guestAccount.contracts.map(
+                                                (contract) => (
+                                                    <div
+                                                        key={contract.slug}
+                                                        className="sm:col-span-2"
+                                                    >
+                                                        <kit.CheckField
+                                                            name={`account_agreements[${contract.slug}]`}
+                                                            value="1"
+                                                            required
+                                                            error={
+                                                                errors[
+                                                                    `account_agreements.${contract.slug}`
+                                                                ]
+                                                            }
+                                                            label={
+                                                                <ContractAgreementLabel
+                                                                    contracts={[
+                                                                        contract,
+                                                                    ]}
+                                                                    linkClass={
+                                                                        kit.linkClass
+                                                                    }
+                                                                />
+                                                            }
+                                                        />
+                                                    </div>
+                                                ),
+                                            )}
+                                            <div className="sm:col-span-2">
+                                                <kit.Note>
+                                                    {t(
+                                                        'Ad soyad fatura bilgilerinden alınır; adresleriniz Adreslerim’e kaydedilir. E-posta adresinize doğrulama bağlantısı gönderilir.',
+                                                    )}
+                                                </kit.Note>
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </>
+                            ) : null}
                         </kit.Step>
 
                         <kit.Step title={t('Teslimat Adresi')} step={2}>

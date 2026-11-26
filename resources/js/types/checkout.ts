@@ -111,4 +111,9 @@ export type CheckoutPageProps = {
     cities: { id: string; name: string }[];
     savedAddresses: CheckoutSavedAddress[];
     canSaveAddress: boolean;
+    /**
+     * Ziyaretçiye: giriş bağlantısı (girişten sonra ödemeye döner) ve "bu bilgilerle
+     * üye ol" seçeneğinde onaylatılacak üyelik sözleşmeleri. Üyeye ya da üyelik kapalıyken null.
+     */
+    guestAccount?: { login_url: string; contracts: ContractInfo[] } | null;
 };

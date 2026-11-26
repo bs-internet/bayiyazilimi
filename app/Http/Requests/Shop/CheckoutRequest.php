@@ -7,6 +7,8 @@ namespace App\Http\Requests\Shop;
 use App\Models\Contract;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
+use Laravel\Fortify\Features;
 
 class CheckoutRequest extends FormRequest
 {
@@ -86,7 +88,40 @@ class CheckoutRequest extends FormRequest
             // Tek kullanımlık ödeme anahtarı ve ekranda görülen tutar (CheckoutGuard).
             'checkout_token' => ['nullable', 'string', 'max:64'],
             'expected_total' => ['nullable', 'numeric', 'min:0'],
+            // Ziyaretçinin "bu bilgilerle üye ol" seçimi: şifre ve üyelik sözleşmeleri.
+            ...($this->wantsAccount() ? [
+                'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+                'password' => ['required', 'string', Password::default(), 'confirmed'],
+                'account_agreements' => ['nullable', 'array'],
+                ...collect($this->registrationContracts())->mapWithKeys(fn (string $title, string $slug) => ["account_agreements.{$slug}" => ['accepted']])->all(),
+            ] : []),
         ];
+    }
+
+    /** Ziyaretçi ödeme formunda üye olmak istiyor mu (üyelik açıksa). */
+    public function wantsAccount(): bool
+    {
+        return $this->user() === null && $this->boolean('create_account') && Features::enabled(Features::registration());
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'email.unique' => __('Bu e-posta adresiyle üyeliğiniz var; giriş yaparak devam edin.'),
+        ];
+    }
+
+    /**
+     * Üyelikte onaylatılan, ödeme formunda henüz onaylatılmamış sözleşmeler: slug => başlık.
+     *
+     * @return array<string, string>
+     */
+    private function registrationContracts(): array
+    {
+        return array_diff_key(Contract::titlesForForm(Contract::REGISTRATION), $this->checkoutContracts());
     }
 
     /**
@@ -103,7 +138,7 @@ class CheckoutRequest extends FormRequest
             $data['shipping']['phone'] = ($data['shipping']['phone'] ?? null) ?: $data['phone'];
         }
 
-        unset($data['agreements'], $data['save_address'], $data['billing_same_as_shipping']);
+        unset($data['agreements'], $data['save_address'], $data['billing_same_as_shipping'], $data['password'], $data['account_agreements']);
 
         return $data;
     }
@@ -131,6 +166,8 @@ class CheckoutRequest extends FormRequest
             'payment_method' => __('ödeme yöntemi'),
             'carrier_id' => __('kargo firması'),
             'marketing_consent' => __('ticari ileti onayı'),
+            'password' => __('şifre'),
+            ...collect($this->registrationContracts())->mapWithKeys(fn (string $title, string $slug) => ["account_agreements.{$slug}" => $title])->all(),
             ...collect($this->checkoutContracts())->mapWithKeys(fn (string $title, string $slug) => ["agreements.{$slug}" => $title])->all(),
         ];
     }
